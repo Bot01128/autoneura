@@ -59,7 +59,7 @@ def generar_contenido_nido_con_ia(negocio, dolores, producto):
     try:
         if not GOOGLE_API_KEY: raise Exception("Sin API Key")
         
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = f"""
         Genera un JSON con contenido para una landing page de ventas (Showroom) para el negocio '{negocio}'.
         
