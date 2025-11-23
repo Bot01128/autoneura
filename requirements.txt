@@ -21,3 +21,6 @@ beautifulsoup4
 twilio
 tavily-python
 openai
+
+# === Corrección de Errores (Agregado) ===
+python-dateutil
