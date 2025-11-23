@@ -9,7 +9,7 @@ from psycopg2.extras import Json
 from werkzeug.routing import BaseConverter
 from cerebro_dashboard import create_chatbot
 
-# --- CONFIGURACION INICIAL ---
+# --- CONFIGURACION INICIAL  ---
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "una-clave-secreta-muy-robusta-para-desarrollo")
 
