@@ -19,8 +19,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def obtener_mejor_bot(plataforma_objetivo, tipo_producto, mision="Extraer negocios locales"):
     """
-    Consulta la tabla 'bot_arsenal' en Supabase para encontrar el mejor Bot (Actor)
-    disponible basado en la estrategia de la campaña.
+    Consulta la tabla 'bot_arsenal' en Supabase para encontrar el mejor Bot (Actor).
     """
     logging.info(f"Consultando Arsenal para: Plataforma={plataforma_objetivo}, Producto={tipo_producto}")
     conn = None
@@ -28,7 +27,13 @@ def obtener_mejor_bot(plataforma_objetivo, tipo_producto, mision="Extraer negoci
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
-        # Selecciona el bot con mayor nivel de confianza que coincida con los criterios
+        # Mapeo de seguridad para evitar errores SQL si tipo_producto viene vacío
+        if not tipo_producto:
+            tipo_producto = "Tangible" 
+            
+        tipo_prod_db = 'Intangible' if 'intangible' in tipo_producto.lower() else 'Tangible'
+        
+        # Selecciona el bot con mayor nivel de confianza
         query = """
             SELECT tool_name, actor_id, provider 
             FROM bot_arsenal 
@@ -38,8 +43,6 @@ def obtener_mejor_bot(plataforma_objetivo, tipo_producto, mision="Extraer negoci
             ORDER BY confidence_level DESC
             LIMIT 1;
         """
-        # Mapeo simple para asegurar que coincida con los valores de la DB
-        tipo_prod_db = 'Intangible' if 'intangible' in tipo_producto.lower() else 'Tangible'
         
         cur.execute(query, (plataforma_objetivo, tipo_prod_db))
         resultado = cur.fetchone()
@@ -59,53 +62,56 @@ def obtener_mejor_bot(plataforma_objetivo, tipo_producto, mision="Extraer negoci
         if conn: conn.close()
         return None
 
-# --- LÓGICA DE ADAPTACIÓN (INPUTS) ---
+# --- LÓGICA DE ADAPTACIÓN (INPUTS - BLINDADA) ---
 
 def preparar_input_actor(actor_id, busqueda, ubicacion, max_items):
     """
     Adapta los parámetros de búsqueda al formato JSON específico que requiere cada Bot.
     """
+    # Validación de seguridad
+    ubicacion_segura = ubicacion if ubicacion else "Global"
+    busqueda_segura = busqueda if busqueda else "Negocios"
+    limite_seguro = int(max_items) if max_items else 5
+
     # 1. Configuración para Google Maps Scraper (Compass o Apify oficial)
     if "google-maps" in actor_id or "google-places" in actor_id:
         return {
-            "searchStringsArray": [busqueda],
-            "locationQuery": ubicacion,
-            "maxCrawledPlacesPerSearch": max_items,
-            "language": "es", # Se puede parametrizar según campaña
-            "allPlacesNoSearchAction": False
+            "searchStringsArray": [busqueda_segura],
+            "locationQuery": ubicacion_segura,
+            "maxCrawledPlacesPerSearch": limite_seguro,
+            "language": "es", 
+            # Eliminamos parámetros conflictivos antiguos
         }
     
     # 2. Configuración para TikTok Hashtag Scraper
     elif "tiktok-hashtag" in actor_id:
-        # Asumimos que 'busqueda' es el hashtag
-        hashtag = busqueda.replace("#", "").strip()
+        hashtag = busqueda_segura.replace("#", "").replace(" ", "").strip()
         return {
             "hashtags": [hashtag],
-            "resultsPerPage": max_items,
+            "resultsPerPage": limite_seguro,
             "shouldDownloadCovers": False
         }
     
     # 3. Configuración para Instagram Scraper
     elif "instagram-scraper" in actor_id:
         return {
-            "search": busqueda,
+            "search": busqueda_segura,
             "searchType": "hashtag",
-            "resultsLimit": max_items
+            "resultsLimit": limite_seguro
         }
         
-    # Default (intento genérico)
+    # Default
     else:
         return {
-            "searchQueries": [busqueda],
-            "maxItems": max_items
+            "searchQueries": [busqueda_segura],
+            "maxItems": limite_seguro
         }
 
 # --- LÓGICA DE NORMALIZACIÓN (OUTPUTS) ---
 
 def normalizar_resultado(item, plataforma):
     """
-    Toma el JSON crudo de Apify y lo convierte en un diccionario estandarizado
-    para nuestra tabla 'prospects'.
+    Toma el JSON crudo de Apify y lo convierte en un diccionario estandarizado.
     """
     datos_normalizados = {
         "business_name": None,
@@ -121,23 +127,21 @@ def normalizar_resultado(item, plataforma):
         datos_normalizados["website_url"] = item.get("website")
         datos_normalizados["phone_number"] = item.get("phone")
         datos_normalizados["address"] = item.get("address")
-        datos_normalizados["url_fuente"] = item.get("url") # URL de Gmaps
+        datos_normalizados["url_fuente"] = item.get("url") 
         
-        # Extraer redes sociales si el scraper las detectó
         if item.get("socialMedia"):
             datos_normalizados["social_profiles"] = item.get("socialMedia")
 
     elif plataforma == "TikTok":
         author = item.get("authorMeta", {})
         datos_normalizados["business_name"] = author.get("nickName") or author.get("name")
-        datos_normalizados["website_url"] = author.get("signatureLink") # Link en bio
+        datos_normalizados["website_url"] = author.get("signatureLink")
         datos_normalizados["url_fuente"] = item.get("webVideoUrl")
         datos_normalizados["social_profiles"] = {"tiktok": f"https://www.tiktok.com/@{author.get('name')}"}
 
     elif plataforma == "Instagram":
         datos_normalizados["business_name"] = item.get("fullName") or item.get("username")
         datos_normalizados["url_fuente"] = f"https://www.instagram.com/{item.get('username')}"
-        # Instagram a veces requiere más procesamiento para sacar email/web
     
     return datos_normalizados
 
@@ -149,10 +153,13 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
     """
     logging.info(f"--- INICIANDO PROTOCOLO DE CAZA: Campaña {campana_id} ---")
     
-    # 1. Obtener detalles de la campaña (Tipo de producto, etc.) para elegir bot
-    # (Aquí simplificamos asumiendo que el Orquestador nos pasa lo necesario, 
-    # pero idealmente haríamos un SELECT a la tabla campaigns)
-    tipo_producto_simulado = "Tangible" # Esto vendría de la DB
+    # BLINDAJE: Si los datos vitales faltan, abortar misión graciosamente
+    if not prompt_busqueda or not ubicacion:
+        logging.warning(f"⚠️ Campaña {campana_id} ignorada: Faltan datos de búsqueda/ubicación.")
+        return
+
+    # 1. Simular tipo de producto (En producción vendría de DB)
+    tipo_producto_simulado = "Tangible"
     
     # 2. Consultar Arsenal
     bot_info = obtener_mejor_bot(plataforma, tipo_producto_simulado)
@@ -188,10 +195,9 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
             # Normalizar datos
             datos = normalizar_resultado(item, plataforma)
             
-            if not datos["business_name"]: continue # Saltar si no hay nombre
+            if not datos["business_name"]: continue 
 
-            # Insertar en DB (Tabla prospects)
-            # Usamos ON CONFLICT DO NOTHING para evitar duplicados si ya cazamos este negocio/url
+            # Insertar en DB 
             try:
                 cur.execute(
                     """
@@ -215,7 +221,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
                     contador_nuevos += 1
             except Exception as db_err:
                 logging.warning(f"Error guardando fila: {db_err}")
-                conn.rollback() # Rollback parcial si falla una fila
+                conn.rollback() 
                 continue
 
         conn.commit()
@@ -230,16 +236,14 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
 
 # --- ENTRY POINT (SIMULACIÓN DEL ORQUESTADOR) ---
 if __name__ == "__main__":
-    # Esto simula la llamada que haría el Orquestador (main.py)
-    
-    # Datos que vendrían de la IA y la Campaña
-    ID_CAMPAÑA_PRUEBA = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11" # Un UUID válido de tu tabla campaigns
-    PROMPT_IA = "Clinicas dentales"
-    UBICACION = "Medellin, Colombia"
+    print(">> Iniciando prueba de trabajador_cazador.py...")
+    # Datos de prueba dummy
+    ID_CAMPAÑA_PRUEBA = "1" 
+    PROMPT_IA = "Pizzerias"
+    UBICACION = "Madrid"
     PLATAFORMA = "Google Maps" 
     
-    print(">> Iniciando prueba de trabajador_cazador.py...")
     if APIFY_TOKEN and DATABASE_URL:
-        ejecutar_caza(ID_CAMPAÑA_PRUEBA, PROMPT_IA, UBICACION, PLATAFORMA, max_resultados=5)
+        ejecutar_caza(ID_CAMPAÑA_PRUEBA, PROMPT_IA, UBICACION, PLATAFORMA, max_resultados=2)
     else:
-        print("Faltan variables de entorno (APIFY_TOKEN o DATABASE_URL). Revisa tu archivo .env")
+        print("Faltan variables de entorno.")
