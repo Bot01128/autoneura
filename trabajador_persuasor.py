@@ -30,7 +30,7 @@ else:
 # --- AQUÍ ESTÁ LA CLASE QUE EL ORQUESTADOR BUSCABA ---
 class TrabajadorPersuasor:
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-1.5-flash') if GOOGLE_API_KEY else None
+        self.model = genai.GenerativeModel('gemini-2.5-flash') if GOOGLE_API_KEY else None
 
     def conectar_db(self):
         return psycopg2.connect(DATABASE_URL)
