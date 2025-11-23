@@ -13,7 +13,7 @@ from cerebro_dashboard import create_chatbot
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "una-clave-secreta-muy-robusta-para-desarrollo")
 
-# Convertidor de UUID para las URLs
+# Convertidor de UUID para las URLs (Mantenemos la clase por si acaso, aunque usaremos string en la ruta crítica)
 class UUIDConverter(BaseConverter):
     def to_python(self, value): return uuid.UUID(value)
     def to_url(self, value): return str(value)
@@ -59,6 +59,7 @@ def generar_contenido_nido_con_ia(negocio, dolores, producto):
     try:
         if not GOOGLE_API_KEY: raise Exception("Sin API Key")
         
+        # Usamos el modelo 2.5-flash que confirmaste que está disponible
         model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = f"""
         Genera un JSON con contenido para una landing page de ventas (Showroom) para el negocio '{negocio}'.
@@ -158,7 +159,7 @@ def chat():
         print(f"!!! ERROR FATAL en la ruta /chat: {e}")
         return jsonify({"error": f"Ocurrio un error en el chat: {e}"}), 500
 
-# --- RUTAS DEL SISTEMA DE CAMPAÑAS (AQUÍ ESTABA EL FALTANTE) ---
+# --- RUTAS DEL SISTEMA DE CAMPAÑAS ---
 
 @app.route('/api/crear-campana', methods=['POST'])
 def crear_campana():
@@ -233,22 +234,34 @@ def crear_campana():
             cur.close()
             conn.close()
 
-# --- RUTAS DEL SISTEMA DE PERSUASIÓN ---
+# --- RUTAS DEL SISTEMA DE PERSUASIÓN (CORREGIDO Y BLINDADO) ---
 
-@app.route('/pre-nido/<uuid:id_unico>')
+@app.route('/pre-nido/<string:id_unico>')
 def mostrar_pre_nido(id_unico):
-    """Paso 1: El prospecto llega desde el email."""
+    """
+    Paso 1: El prospecto llega desde el email del Persuasor.
+    Recibimos el ID como STRING para evitar errores 500 de conversión UUID.
+    """
+    print(f"--- INTENTO DE ACCESO A PRE-NIDO: {id_unico} ---")
+    
     conn = get_db_connection()
-    if not conn: return "Error de conexión", 500
+    if not conn: return "Error de conexión a DB", 500
     
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id, business_name FROM prospects WHERE unique_access_token = %s", (str(id_unico),))
+        # Buscamos el prospecto por su token único (como texto para seguridad)
+        cur.execute("SELECT id, business_name FROM prospects WHERE unique_access_token::text = %s", (id_unico,))
         resultado = cur.fetchone()
+        
         if resultado:
+            print(f">>> Prospecto encontrado: {resultado[1]}")
             return render_template('persuasor.html', prospecto_id=resultado[0], nombre_negocio=resultado[1])
         else:
+            print("!!! Token no encontrado en DB.")
             return "Enlace inválido o expirado.", 404
+    except Exception as e:
+        print(f"!!! ERROR CRÍTICO EN PRE-NIDO: {e}")
+        return f"Error interno del servidor: {e}", 500
     finally:
         cur.close()
         conn.close()
@@ -308,7 +321,13 @@ def generar_nido_y_enviar_enlace():
 
 @app.route('/api/chat-nido', methods=['POST'])
 def chat_nido_api():
-    return jsonify({"respuesta": "Gracias. Tu mensaje está siendo procesado por nuestra IA."})
+    """
+    API para el chat simulado dentro del Nido.
+    Aquí podría conectarse el Nutridor en el futuro.
+    """
+    # data = request.json
+    # mensaje = data.get('mensaje', '')
+    return jsonify({"respuesta": "Gracias por tu mensaje. Estoy analizando tu consulta para darte la mejor respuesta personalizada."})
 
 # --- RUTAS DE PRUEBA ---
 @app.route('/confirmacion')
