@@ -7,37 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='client_style.css') }}">
-    <style>
-        /* ESTILOS GENERALES */
-        select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
-            width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: white; font-size: 14px; font-family: inherit; box-sizing: border-box;
-        }
-        
-        /* CAJA CEREBRO (AZUL) */
-        .brain-box { background-color: #f8f9fa; padding: 20px; border-left: 5px solid #007bff; margin-top: 20px; border-radius: 5px; }
-        .brain-box h3 { color: #0056b3; margin-top: 0; }
-        .help-text { font-size: 0.85em; color: #666; margin-bottom: 8px; font-style: italic; }
-        .blackboard-field { border: 2px solid #28a745 !important; background-color: #f0fff4 !important; }
-
-        /* RESUMEN AMARILLO */
-        .summary-box { background-color: #fff3cd; border: 1px solid #ffeeba; padding: 20px; border-radius: 8px; margin-top: 25px; margin-bottom: 20px; }
-        .summary-box h4 { margin-top: 0; color: #856404; border-bottom: 1px solid #ffeeba; padding-bottom: 10px; }
-        .summary-box p { margin: 8px 0; font-size: 1em; display: flex; justify-content: space-between; }
-        
-        /* BOTÓN VERDE GIGANTE */
-        .cta-button { width: 100%; background-color: #28a745; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.3em; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .cta-button:hover { background-color: #218838; }
-        .cta-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
-
-        /* RADIO BUTTONS */
-        .radio-group { display: flex; gap: 20px; margin-top: 10px; }
-        .radio-item { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 1em; }
-        input[type="radio"] { transform: scale(1.3); cursor: pointer; width: auto; margin: 0; }
-        
-        /* ESTILO PARA PLANES DESACTIVADOS (SOLO LECTURA) */
-        .plan-disabled { opacity: 0.6; pointer-events: none; background-color: #e9ecef; border-color: #ced4da; }
-        .plan-active-readonly { opacity: 1 !important; border-color: #007bff !important; background-color: #f0f7ff !important; box-shadow: 0 0 5px rgba(0, 123, 255, 0.3); }
-    </style>
 </head>
 <body>
     <div class="top-bar">
@@ -63,10 +32,10 @@
         </div>
 
         <div class="right-panel">
+            <!-- PESTAÑAS (FOTO B: Gestionar ahora es normal) -->
             <div class="tab-nav">
                 <button class="tab-button active" data-tab="my-campaigns">{{ _('Mis Campañas') }}</button>
-                <!-- BOTÓN CORREGIDO: SIEMPRE VISIBLE -->
-                <button class="tab-button" data-tab="manage-campaign" id="btn-manage-campaign" style="background-color: #e2e6ea; border-left: 3px solid #007bff;">⚙️ {{ _('Gestionar Campaña') }}</button>
+                <button class="tab-button" data-tab="manage-campaign" id="btn-manage-campaign">{{ _('Gestionar Campaña') }}</button>
                 <button class="tab-button" data-tab="create-campaign">{{ _('Crear Campaña') }}</button>
                 <button class="tab-button" data-tab="prospect-flow">{{ _('Flujo de Prospectos') }}</button>
                 <button class="tab-button" data-tab="conversations">{{ _('Conversaciones') }}</button>
@@ -74,7 +43,7 @@
                 <button class="tab-button" data-tab="suggestions">{{ _('Tus Sugerencias') }}</button>
             </div>
 
-            <!-- 1. MIS CAMPAÑAS -->
+            <!-- 1. MIS CAMPAÑAS (FOTO C: KPIs dinámicos) -->
             <div class="tab-content" id="my-campaigns" style="display: block;">
                 <div class="kpi-container">
                     <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
@@ -82,31 +51,35 @@
                     <div class="kpi-card"><span class="kpi-title">Tasa de Conversión</span><span class="kpi-value rate-success" id="kpi-rate">0%</span></div>
                 </div>
                 <h2>{{ _('Mis Campañas Activas y Pasadas') }}</h2>
-                <p class="help-text">💡 Haz clic en cualquier campaña para abrir su Centro de Comando.</p>
                 <table class="campaign-table">
                     <thead>
-                        <tr><th>{{ _('Nombre') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th><th>{{ _('Encontrados') }}</th><th>{{ _('Leads') }}</th></tr>
+                        <tr><th>{{ _('Nombre') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th><th>{{ _('Encontrados') }}</th><th>{{ _('Acción') }}</th></tr>
                     </thead>
                     <tbody id="campaigns-table-body"></tbody>
                 </table>
             </div>
 
-            <!-- 2. CREAR CAMPAÑA -->
+            <!-- 2. CREAR CAMPAÑA (FOTO 8: Botones seleccionables) -->
             <div class="tab-content" id="create-campaign" style="display: none;">
                 <h2>{{ _('Configurar Nueva Campaña') }}</h2>
                 <div class="form-section">
                     <label>{{ _('1. Selecciona un Plan') }}</label>
-                    <div class="plans-container">
-                        <div class="plan-card" data-plan="arrancador"><h4>{{ _('El Arrancador') }}</h4><div class="price">$149<span>/mes</span></div><small>4 prospectos/día</small></div>
-                        <div class="plan-card" data-plan="profesional"><h4>{{ _('El Profesional') }}</h4><div class="price">$399<span>/mes</span></div><small>15 prospectos/día</small></div>
-                        <div class="plan-card" data-plan="dominador"><h4>{{ _('El Dominador') }}</h4><div class="price">$999<span>/mes</span></div><small>50 prospectos/día</small></div>
+                    <div class="plans-container" id="create-plans-container">
+                        <div class="plan-card" data-plan="arrancador" data-price="149" onclick="selectPlan(this, 'arrancador', 149)">
+                            <h4>{{ _('El Arrancador') }}</h4><div class="price">$149<span>/mes</span></div><small>4 prospectos/día</small>
+                        </div>
+                        <div class="plan-card" data-plan="profesional" data-price="399" onclick="selectPlan(this, 'profesional', 399)">
+                            <h4>{{ _('El Profesional') }}</h4><div class="price">$399<span>/mes</span></div><small>15 prospectos/día</small>
+                        </div>
+                        <div class="plan-card" data-plan="dominador" data-price="999" onclick="selectPlan(this, 'dominador', 999)">
+                            <h4>{{ _('El Dominador') }}</h4><div class="price">$999<span>/mes</span></div><small>50 prospectos/día</small>
+                        </div>
                     </div>
                 </div>
                 <div class="form-section">
                     <label>{{ _('2. Personaliza cantidad diaria') }}</label>
                     <input type="number" id="prospects-per-day" value="4" min="4">
                 </div>
-                <!-- ... (El resto de Crear Campaña sigue igual) ... -->
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado') }}</label>
                     <input type="text" id="nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
@@ -147,6 +120,7 @@
                     <input type="tel" id="numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
                     <input type="text" id="enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
+                <!-- FOTO 9: Resumen Final Amarillo -->
                 <div id="summary-box" class="summary-box">
                     <h4>{{ _('Resumen Final') }}</h4>
                     <p>{{ _('Plan:') }} <strong id="selected-plan">-</strong></p>
@@ -158,16 +132,16 @@
                 </div>
             </div>
 
-            <!-- 3. PESTAÑA GEMELA (GESTIÓN) - CORREGIDA FOTO A y B -->
+            <!-- 3. PESTAÑA GESTIONAR (FOTO 11, 7A y D) -->
             <div class="tab-content" id="manage-campaign" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
-                    <h2 style="margin:0; color: #007bff;">⚙️ Centro de Comando: <span id="manage-campaign-title" style="color: #333;">Cargando...</span></h2>
-                    <button class="cta-button" style="background-color: #6c757d; padding: 8px 20px; width: auto; font-size: 14px;" onclick="document.querySelector('[data-tab=my-campaigns]').click()">✖ {{ _('Cerrar') }}</button>
+                    <!-- FOTO D: Aquí aparecerá el nombre -->
+                    <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
                 </div>
 
                 <input type="hidden" id="edit_campaign_id">
 
-                <!-- A. PLAN ACTUAL (VISIBLE PERO NO EDITABLE) -->
+                <!-- PLAN ACTUAL (FOTO 11: Solo Lectura y Visual) -->
                 <div class="form-section">
                     <label>{{ _('1. Plan Actual (Solo Lectura)') }}</label>
                     <div class="plans-container">
@@ -175,10 +149,9 @@
                         <div class="plan-card plan-disabled" id="edit_plan_profesional"><h4>{{ _('El Profesional') }}</h4><small>15/día</small></div>
                         <div class="plan-card plan-disabled" id="edit_plan_dominador"><h4>{{ _('El Dominador') }}</h4><small>50/día</small></div>
                     </div>
-                    <p style="font-size: 0.85em; color: #666;">* Para cambiar de plan o aumentar prospectos, contacta a soporte o crea una nueva campaña.</p>
                 </div>
 
-                <!-- B. DATOS BÁSICOS (AHORA SÍ ESTÁN COMPLETOS) -->
+                <!-- FORMULARIO DE EDICIÓN -->
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
                     <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
@@ -205,7 +178,6 @@
                     </select>
                 </div>
 
-                <!-- D. CEREBRO -->
                 <div class="form-section brain-box">
                     <h3>🧠 {{ _('Modificar Cerebro de la IA') }}</h3>
                     <label>🧬 {{ _('ADN Corporativo') }}</label>
@@ -214,23 +186,30 @@
                     <textarea id="edit_ai_blackboard" class="blackboard-field" rows="4"></textarea>
                 </div>
 
-                <!-- E. CONTACTO -->
                 <div class="form-section">
                     <label>{{ _('5. Datos de Contacto') }}</label>
                     <input type="tel" id="edit_numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
                     <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
+                <!-- FOTO 7A: SOLO BOTÓN DE GUARDAR (Sin Resumen, Sin Lanzar) -->
                 <div id="action-buttons-container" style="margin-top: 30px;">
                     <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
-                        💾 {{ _('Guardar Todos los Cambios') }}
+                        💾 {{ _('Guardar Cambios') }}
                     </button>
                 </div>
             </div>
 
-            <!-- OTRAS PESTAÑAS -->
+            <!-- FOTO 10: CONVERSACIONES -->
+            <div class="tab-content" id="conversations" style="display: none;">
+                <h2>{{ _('Conversaciones Activas (Nido)') }}</h2>
+                <div class="conversations-placeholder">
+                    <h3>💬 Aquí aparecerán los chats del Nutridor</h3>
+                    <p>Cuando un prospecto interactúe en el Nido, verás el historial aquí.</p>
+                </div>
+            </div>
+
             <div class="tab-content" id="prospect-flow" style="display: none;"><h2>Flujo</h2></div>
-            <div class="tab-content" id="conversations" style="display: none;"><h2>Conversaciones</h2></div>
             <div class="tab-content" id="billing" style="display: none;"><h2>Facturación</h2></div>
             <div class="tab-content" id="suggestions" style="display: none;"><h2>Sugerencias</h2></div>
         </div>
