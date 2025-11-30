@@ -32,7 +32,7 @@
         </div>
 
         <div class="right-panel">
-            <!-- PESTAÑAS (FOTO B: Gestionar ahora es normal) -->
+            <!-- PESTAÑAS (FOTO B: Limpio, sin iconos raros) -->
             <div class="tab-nav">
                 <button class="tab-button active" data-tab="my-campaigns">{{ _('Mis Campañas') }}</button>
                 <button class="tab-button" data-tab="manage-campaign" id="btn-manage-campaign">{{ _('Gestionar Campaña') }}</button>
@@ -43,7 +43,7 @@
                 <button class="tab-button" data-tab="suggestions">{{ _('Tus Sugerencias') }}</button>
             </div>
 
-            <!-- 1. MIS CAMPAÑAS (FOTO C: KPIs dinámicos) -->
+            <!-- 1. MIS CAMPAÑAS (FOTO C: KPIs Totales/Individuales) -->
             <div class="tab-content" id="my-campaigns" style="display: block;">
                 <div class="kpi-container">
                     <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
@@ -59,13 +59,14 @@
                 </table>
             </div>
 
-            <!-- 2. CREAR CAMPAÑA (FOTO 8: Botones seleccionables) -->
+            <!-- 2. CREAR CAMPAÑA (FOTO 2: Arrancador Seleccionado por defecto) -->
             <div class="tab-content" id="create-campaign" style="display: none;">
                 <h2>{{ _('Configurar Nueva Campaña') }}</h2>
                 <div class="form-section">
                     <label>{{ _('1. Selecciona un Plan') }}</label>
                     <div class="plans-container" id="create-plans-container">
-                        <div class="plan-card" data-plan="arrancador" data-price="149" onclick="selectPlan(this, 'arrancador', 149)">
+                        <!-- FOTO 2: class="selected" añadida manualmente al primero -->
+                        <div class="plan-card selected" data-plan="arrancador" data-price="149" onclick="selectPlan(this, 'arrancador', 149)">
                             <h4>{{ _('El Arrancador') }}</h4><div class="price">$149<span>/mes</span></div><small>4 prospectos/día</small>
                         </div>
                         <div class="plan-card" data-plan="profesional" data-price="399" onclick="selectPlan(this, 'profesional', 399)">
@@ -80,6 +81,8 @@
                     <label>{{ _('2. Personaliza cantidad diaria') }}</label>
                     <input type="number" id="prospects-per-day" value="4" min="4">
                 </div>
+                
+                <!-- Resto del formulario... -->
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado') }}</label>
                     <input type="text" id="nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
@@ -120,28 +123,31 @@
                     <input type="tel" id="numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
                     <input type="text" id="enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
-                <!-- FOTO 9: Resumen Final Amarillo -->
+
+                <!-- FOTO 7B: RESUMEN AMARILLO Y BOTÓN CORREGIDO -->
                 <div id="summary-box" class="summary-box">
                     <h4>{{ _('Resumen Final') }}</h4>
-                    <p>{{ _('Plan:') }} <strong id="selected-plan">-</strong></p>
-                    <p>{{ _('Costo Mensual:') }} <strong id="total-cost">$0.00</strong></p>
-                    <p id="recharge-line" style="color: #dc3545;">{{ _('Falta Recargar:') }} <strong id="recharge-amount">$0.00</strong></p>
+                    <p>{{ _('Plan Seleccionado:') }} <strong id="selected-plan">El Arrancador</strong></p>
+                    <p>{{ _('Costo Mensual Final:') }} <strong id="total-cost">$149.00</strong></p>
+                    <div class="summary-divider"></div>
+                    <p>{{ _('Saldo en tu Cuenta:') }} <strong>$0.00</strong></p>
+                    <p style="color: #dc3545;">{{ _('Mínimo a Recargar:') }} <strong id="recharge-amount">$149.00</strong></p>
                 </div>
                 <div id="action-buttons-container">
-                    <button id="lancam" class="cta-button">{{ _('Lanzar Campaña al Orquestador') }}</button>
+                    <button id="lancam" class="cta-button">{{ _('Lanzar Campaña') }}</button>
                 </div>
             </div>
 
-            <!-- 3. PESTAÑA GESTIONAR (FOTO 11, 7A y D) -->
+            <!-- 3. GESTIONAR CAMPAÑA (FOTO 1 y D) -->
             <div class="tab-content" id="manage-campaign" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
-                    <!-- FOTO D: Aquí aparecerá el nombre -->
+                    <!-- FOTO D: Título Correcto -->
                     <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
                 </div>
 
                 <input type="hidden" id="edit_campaign_id">
 
-                <!-- PLAN ACTUAL (FOTO 11: Solo Lectura y Visual) -->
+                <!-- FOTO 1: Plan seleccionado resaltado en verde -->
                 <div class="form-section">
                     <label>{{ _('1. Plan Actual (Solo Lectura)') }}</label>
                     <div class="plans-container">
@@ -151,7 +157,7 @@
                     </div>
                 </div>
 
-                <!-- FORMULARIO DE EDICIÓN -->
+                <!-- FORMULARIO EDICIÓN -->
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
                     <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
@@ -159,7 +165,6 @@
                     <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;">
                     <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;">
                     <input type="text" id="edit_ubicacion_geografica" disabled style="margin-top:10px; background-color:#e9ecef;" title="No editable">
-                    
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
                         <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio ($)') }}">
                         <select id="edit_objetivo_cta">
@@ -177,7 +182,6 @@
                         <option value="agresivo">Tono Agresivo</option>
                     </select>
                 </div>
-
                 <div class="form-section brain-box">
                     <h3>🧠 {{ _('Modificar Cerebro de la IA') }}</h3>
                     <label>🧬 {{ _('ADN Corporativo') }}</label>
@@ -185,14 +189,13 @@
                     <label style="margin-top: 15px;">⚡ {{ _('Pizarrón Táctico') }}</label>
                     <textarea id="edit_ai_blackboard" class="blackboard-field" rows="4"></textarea>
                 </div>
-
                 <div class="form-section">
                     <label>{{ _('5. Datos de Contacto') }}</label>
                     <input type="tel" id="edit_numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
                     <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
-                <!-- FOTO 7A: SOLO BOTÓN DE GUARDAR (Sin Resumen, Sin Lanzar) -->
+                <!-- SOLO BOTÓN GUARDAR (SIN RESUMEN NI LANZAR) -->
                 <div id="action-buttons-container" style="margin-top: 30px;">
                     <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
                         💾 {{ _('Guardar Cambios') }}
@@ -200,18 +203,25 @@
                 </div>
             </div>
 
-            <!-- FOTO 10: CONVERSACIONES -->
-            <div class="tab-content" id="conversations" style="display: none;">
-                <h2>{{ _('Conversaciones Activas (Nido)') }}</h2>
-                <div class="conversations-placeholder">
-                    <h3>💬 Aquí aparecerán los chats del Nutridor</h3>
-                    <p>Cuando un prospecto interactúe en el Nido, verás el historial aquí.</p>
+            <!-- FOTO 8B: FACTURACIÓN -->
+            <div class="tab-content" id="billing" style="display: none;">
+                <div class="billing-box">
+                    <div class="billing-title">Mi Saldo y Facturación</div>
+                    <p>Saldo Actual: <strong style="font-size:1.5em; color: #333;">$0.00</strong></p>
+                    <button class="billing-btn-large">+ Recargar Saldo</button>
+                </div>
+            </div>
+
+            <!-- FOTO 10: SUGERENCIAS -->
+            <div class="tab-content" id="suggestions" style="display: none;">
+                <div class="suggestions-box">
+                    <h3>Sugerencias</h3>
+                    <p>Aquí verás recomendaciones de la IA para mejorar tus campañas.</p>
                 </div>
             </div>
 
             <div class="tab-content" id="prospect-flow" style="display: none;"><h2>Flujo</h2></div>
-            <div class="tab-content" id="billing" style="display: none;"><h2>Facturación</h2></div>
-            <div class="tab-content" id="suggestions" style="display: none;"><h2>Sugerencias</h2></div>
+            <div class="tab-content" id="conversations" style="display: none;"><h2>Conversaciones</h2></div>
         </div>
     </div>
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
