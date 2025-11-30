@@ -1,5 +1,5 @@
 /* =========================================
-   ESTILOS GENERALES Y ESTRUCTURA
+   ESTILOS GENERALES
    ========================================= */
 body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; height: 100%; }
 
@@ -10,94 +10,95 @@ body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFo
 .left-panel { flex: 0 0 450px; background-color: #ffffff; padding: 30px; display: flex; flex-direction: column; border-right: 1px solid #ddd; }
 .right-panel { flex-grow: 1; background-color: #f8f9fa; padding: 40px; overflow-y: auto; }
 
-/* =========================================
-   ESTILOS DE FORMULARIO (INPUTS)
-   ========================================= */
+/* INPUTS */
 select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
     width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: white; font-size: 14px; font-family: inherit; box-sizing: border-box;
 }
 
-/* =========================================
-   CAJAS ESPECIALES
-   ========================================= */
+/* CAJAS ESPECIALES */
 .brain-box { background-color: #f8f9fa; padding: 20px; border-left: 5px solid #007bff; margin-top: 20px; border-radius: 5px; }
 .brain-box h3 { color: #0056b3; margin-top: 0; }
 .help-text { font-size: 0.85em; color: #666; margin-bottom: 8px; font-style: italic; }
 .blackboard-field { border: 2px solid #28a745 !important; background-color: #f0fff4 !important; }
 
-/* RESUMEN AMARILLO (FOTO 9B) */
+/* --- CORRECCIÓN FOTOS 7B y 9B: RESUMEN AMARILLO --- */
 .summary-box {
-    background-color: #fff9db !important; /* Amarillo forzado */
+    background-color: #fff9db !important; /* Amarillo Nota */
     border: 1px solid #ffeeba;
-    padding: 20px;
+    padding: 25px;
     border-radius: 8px;
     margin-top: 25px;
     margin-bottom: 20px;
     color: #856404;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
-.summary-box h4 { margin-top: 0; border-bottom: 1px solid #ffeeba; padding-bottom: 10px; }
-.summary-box p { margin: 8px 0; font-size: 1em; display: flex; justify-content: space-between; }
+.summary-box h4 { margin-top: 0; border-bottom: 2px solid #faeccc; padding-bottom: 15px; margin-bottom: 15px; font-size: 1.1em; }
+.summary-box p { margin: 10px 0; font-size: 1.05em; display: flex; justify-content: space-between; }
 
-/* =========================================
-   BOTONES Y ACCIONES
-   ========================================= */
+/* --- CORRECCIÓN BOTÓN VERDE (FOTO 7B) --- */
 .cta-button {
-    width: 100%; background-color: #28a745; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.3em; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background 0.3s;
+    width: 100%; background-color: #28a745; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.3em; font-weight: bold; cursor: pointer; margin-top: 10px; 
+    box-shadow: 0 4px 0 #218838; /* Efecto 3D Solido */
+    transition: all 0.1s;
 }
-.cta-button:hover { background-color: #218838; }
-.cta-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
+.cta-button:hover { background-color: #2ecc71; transform: translateY(-2px); box-shadow: 0 6px 0 #218838; }
+.cta-button:active { transform: translateY(2px); box-shadow: 0 0 0 #218838; }
+.cta-button:disabled { background-color: #adb5bd; box-shadow: none; cursor: not-allowed; }
 
 /* RADIO BUTTONS */
 .radio-group { display: flex; gap: 20px; margin-top: 10px; }
 .radio-item { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 1em; }
 input[type="radio"] { transform: scale(1.3); cursor: pointer; width: auto; margin: 0; }
 
-/* =========================================
-   NAVEGACIÓN (PESTAÑAS) - FOTO B
-   ========================================= */
+/* PESTAÑAS (FOTO B) */
 .tab-nav { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 30px; }
-.tab-nav button { 
-    background: none; border: none; padding: 15px 20px; cursor: pointer; font-size: 16px; color: #606770; border-bottom: 3px solid transparent; 
-}
-/* Estilo activo genérico para todas */
+.tab-nav button { background: none; border: none; padding: 15px 20px; cursor: pointer; font-size: 16px; color: #606770; border-bottom: 3px solid transparent; }
 .tab-nav button.active { color: #007bff; border-bottom-color: #007bff; font-weight: 600; }
 
-/* =========================================
-   DASHBOARD KPI CARDS (FOTO C)
-   ========================================= */
+/* KPIS (FOTO C) */
 .kpi-container { display: flex; gap: 20px; margin-bottom: 25px; }
 .kpi-card { flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border: 1px solid #eee; }
-.kpi-title { display: block; color: #666; font-size: 0.9em; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi-title { display: block; color: #666; font-size: 0.9em; margin-bottom: 5px; text-transform: uppercase; }
 .kpi-value { font-size: 2em; font-weight: bold; color: #333; }
 .rate-success { color: #28a745; }
 
-/* TABLAS */
+/* TABLA */
 .campaign-table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .campaign-table th, .campaign-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
 .campaign-table tbody tr:hover { background-color: #f1f1f1; cursor: pointer; }
 
-/* =========================================
-   PLANES (FOTO 8A/B y 11A/B)
-   ========================================= */
+/* --- CORRECCIÓN PLANES (FOTO 1 y 2) --- */
 .plans-container { display: flex; gap: 20px; margin-bottom: 20px; }
-.plan-card { 
-    flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: white; transition: all 0.2s ease;
+.plan-card { flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 25px; text-align: center; cursor: pointer; background: white; transition: all 0.2s; }
+.plan-card .price { font-size: 28px; font-weight: bold; margin: 15px 0; color: #333; }
+
+/* PLAN SELECCIONADO (FOTO 2) */
+.plan-card.selected { 
+    border: 2px solid #007bff; 
+    background-color: #f0f7ff; 
+    box-shadow: 0 8px 16px rgba(0,123,255,0.15); 
+    transform: translateY(-5px);
 }
-.plan-card .price { font-size: 24px; font-weight: bold; margin: 10px 0; }
 
-/* Efecto Hover y Selección (Foto 8B) */
-.plan-card:hover { border-color: #007bff; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-.plan-card.selected { border-color: #007bff; background-color: #f0f7ff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,123,255,0.2); }
-
-/* Modo Gestión (Foto 11B) */
-.plan-disabled { opacity: 0.7; pointer-events: none; background-color: #f8f9fa; color: #6c757d; }
+/* PLANES LECTURA (FOTO 1) */
+.plan-disabled { opacity: 0.5; pointer-events: none; background-color: #f9f9f9; filter: grayscale(100%); }
 .plan-active-readonly { 
-    opacity: 1 !important; border-color: #28a745 !important; background-color: #f0fff4 !important; color: #155724; box-shadow: 0 0 0 1px #28a745; 
+    opacity: 1 !important; 
+    filter: grayscale(0%) !important;
+    border: 2px solid #28a745 !important; 
+    background-color: #f0fff4 !important; 
+    box-shadow: 0 4px 10px rgba(40, 167, 69, 0.2); 
+    transform: scale(1.03); 
+    position: relative;
+}
+/* Etiqueta "Plan Actual" */
+.plan-active-readonly::after {
+    content: "PLAN ACTUAL";
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: bold;
 }
 
-/* =========================================
-   CHAT Y CONVERSACIONES (FOTO 10)
-   ========================================= */
+/* CHAT */
 .chat-window { flex-grow: 1; border: 1px solid #ddd; border-radius: 8px; margin-top: 20px; display: flex; flex-direction: column; overflow: hidden; padding: 10px; }
 .chat-messages { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
 .msg-user { background-color: #007bff; color: white; align-self: flex-end; padding: 10px; border-radius: 10px; max-width: 80%; }
@@ -105,5 +106,17 @@ input[type="radio"] { transform: scale(1.3); cursor: pointer; width: auto; margi
 .chat-input { display: flex; margin-top: 10px; gap: 10px; }
 .chat-input button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
 
-/* Placeholder para la tabla de conversaciones */
-.conversations-placeholder { text-align: center; padding: 40px; color: #666; background: white; border-radius: 8px; border: 1px dashed #ccc; }
+/* --- CORRECCIÓN FOTO 8B (FACTURACIÓN) --- */
+.billing-box {
+    background: white; border: 1px solid #ddd; border-radius: 8px; padding: 30px; margin-top: 20px;
+}
+.billing-title { font-size: 1.5em; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.billing-btn-large {
+    width: 100%; background: #007bff; color: white; padding: 15px; border: none; border-radius: 5px; font-size: 1.1em; cursor: pointer; margin-top: 20px; font-weight: bold;
+}
+.billing-btn-large:hover { background: #0056b3; }
+
+/* --- CORRECCIÓN FOTO 10 (SUGERENCIAS) --- */
+.suggestions-box {
+    background: white; border: 1px solid #ddd; border-radius: 8px; padding: 30px; min-height: 300px;
+}
