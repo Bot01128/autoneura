@@ -14,7 +14,7 @@
         <div class="user-info">
             <span><strong>{{ _('Saldo:') }}</strong> $0.00</span>
             <button class="recharge-btn">{{ _('+ Recargar Saldo') }}</button>
-            <button id="logout-btn" class="recharge-btn" style="background-color: #6c757d; border-color: #5a6268;">Cerrar Sesión</button>
+            <button id="logout-btn" class="recharge-btn" style="background-color: #6c757d; border-color: #5a6268; box-shadow:none;">Cerrar Sesión</button>
         </div>
     </div>
     <div class="container">
@@ -32,7 +32,7 @@
         </div>
 
         <div class="right-panel">
-            <!-- PESTAÑAS (FOTO B: Limpio, sin iconos raros) -->
+            <!-- PESTAÑAS -->
             <div class="tab-nav">
                 <button class="tab-button active" data-tab="my-campaigns">{{ _('Mis Campañas') }}</button>
                 <button class="tab-button" data-tab="manage-campaign" id="btn-manage-campaign">{{ _('Gestionar Campaña') }}</button>
@@ -43,7 +43,7 @@
                 <button class="tab-button" data-tab="suggestions">{{ _('Tus Sugerencias') }}</button>
             </div>
 
-            <!-- 1. MIS CAMPAÑAS (FOTO C: KPIs Totales/Individuales) -->
+            <!-- 1. MIS CAMPAÑAS -->
             <div class="tab-content" id="my-campaigns" style="display: block;">
                 <div class="kpi-container">
                     <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
@@ -59,20 +59,20 @@
                 </table>
             </div>
 
-            <!-- 2. CREAR CAMPAÑA (FOTO 2: Arrancador Seleccionado por defecto) -->
+            <!-- 2. CREAR CAMPAÑA -->
             <div class="tab-content" id="create-campaign" style="display: none;">
                 <h2>{{ _('Configurar Nueva Campaña') }}</h2>
                 <div class="form-section">
                     <label>{{ _('1. Selecciona un Plan') }}</label>
                     <div class="plans-container" id="create-plans-container">
-                        <!-- FOTO 2: class="selected" añadida manualmente al primero -->
-                        <div class="plan-card selected" data-plan="arrancador" data-price="149" onclick="selectPlan(this, 'arrancador', 149)">
+                        <!-- onclick actualizado con el número de prospectos -->
+                        <div class="plan-card selected" data-plan="arrancador" data-price="149" onclick="selectPlan(this, 'arrancador', 149, 4)">
                             <h4>{{ _('El Arrancador') }}</h4><div class="price">$149<span>/mes</span></div><small>4 prospectos/día</small>
                         </div>
-                        <div class="plan-card" data-plan="profesional" data-price="399" onclick="selectPlan(this, 'profesional', 399)">
+                        <div class="plan-card" data-plan="profesional" data-price="399" onclick="selectPlan(this, 'profesional', 399, 15)">
                             <h4>{{ _('El Profesional') }}</h4><div class="price">$399<span>/mes</span></div><small>15 prospectos/día</small>
                         </div>
-                        <div class="plan-card" data-plan="dominador" data-price="999" onclick="selectPlan(this, 'dominador', 999)">
+                        <div class="plan-card" data-plan="dominador" data-price="999" onclick="selectPlan(this, 'dominador', 999, 50)">
                             <h4>{{ _('El Dominador') }}</h4><div class="price">$999<span>/mes</span></div><small>50 prospectos/día</small>
                         </div>
                     </div>
@@ -81,8 +81,7 @@
                     <label>{{ _('2. Personaliza cantidad diaria') }}</label>
                     <input type="number" id="prospects-per-day" value="4" min="4">
                 </div>
-                
-                <!-- Resto del formulario... -->
+                <!-- ... Resto del Formulario ... -->
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado') }}</label>
                     <input type="text" id="nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
@@ -124,10 +123,11 @@
                     <input type="text" id="enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
-                <!-- FOTO 7B: RESUMEN AMARILLO Y BOTÓN CORREGIDO -->
+                <!-- RESUMEN FINAL (FOTO 7B - CON PROSPECTOS) -->
                 <div id="summary-box" class="summary-box">
                     <h4>{{ _('Resumen Final') }}</h4>
                     <p>{{ _('Plan Seleccionado:') }} <strong id="selected-plan">El Arrancador</strong></p>
+                    <p>{{ _('Prospectos por día:') }} <strong id="selected-prospects">4</strong></p>
                     <p>{{ _('Costo Mensual Final:') }} <strong id="total-cost">$149.00</strong></p>
                     <div class="summary-divider"></div>
                     <p>{{ _('Saldo en tu Cuenta:') }} <strong>$0.00</strong></p>
@@ -138,16 +138,14 @@
                 </div>
             </div>
 
-            <!-- 3. GESTIONAR CAMPAÑA (FOTO 1 y D) -->
+            <!-- 3. PESTAÑA GESTIONAR -->
             <div class="tab-content" id="manage-campaign" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
-                    <!-- FOTO D: Título Correcto -->
                     <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
                 </div>
 
                 <input type="hidden" id="edit_campaign_id">
 
-                <!-- FOTO 1: Plan seleccionado resaltado en verde -->
                 <div class="form-section">
                     <label>{{ _('1. Plan Actual (Solo Lectura)') }}</label>
                     <div class="plans-container">
@@ -157,7 +155,7 @@
                     </div>
                 </div>
 
-                <!-- FORMULARIO EDICIÓN -->
+                <!-- Formulario Edición (Mismo contenido) -->
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
                     <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
@@ -195,9 +193,8 @@
                     <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
-                <!-- SOLO BOTÓN GUARDAR (SIN RESUMEN NI LANZAR) -->
                 <div id="action-buttons-container" style="margin-top: 30px;">
-                    <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
+                    <button id="btn-update-brain" class="cta-button">
                         💾 {{ _('Guardar Cambios') }}
                     </button>
                 </div>
