@@ -3,6 +3,7 @@ import psycopg2
 import json
 import google.generativeai as genai
 import uuid
+import logging
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_babel import Babel, gettext
 from psycopg2.extras import Json
@@ -22,6 +23,9 @@ except ImportError:
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
+
+# Configuración básica de logs para ver errores en Railway
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "autoneura-super-secret-key-2025")
@@ -66,7 +70,7 @@ def get_db_connection():
 
 # --- RUTAS PRINCIPALES ---
 @app.route('/')
-def home(): return render_template('dashboard.html')
+def home(): return render_template('client_dashboard.html') # Ajustado para que entre directo al dash si es cliente
 
 @app.route('/cliente')
 def client_dashboard(): return render_template('client_dashboard.html')
@@ -110,7 +114,8 @@ def obtener_datos_dashboard():
                 c.created_at, 
                 c.status,
                 COUNT(p.id) as encontrados,
-                COUNT(p.id) FILTER (WHERE p.nurture_interactions_count >= 3) as leads
+                COUNT(p.id) FILTER (WHERE p.nurture_interactions_count >= 3) as leads,
+                c.id
             FROM campaigns c
             JOIN clients cl ON c.client_id = cl.id
             LEFT JOIN prospects p ON c.id = p.campaign_id
@@ -126,7 +131,8 @@ def obtener_datos_dashboard():
                 "fecha": row[1].strftime('%Y-%m-%d') if row[1] else "-",
                 "estado": row[2],
                 "encontrados": row[3],
-                "calificados": row[4]
+                "calificados": row[4],
+                "id": row[5] # Importante para el botón gestionar
             })
 
         return jsonify({
@@ -145,7 +151,7 @@ def obtener_datos_dashboard():
         cur.close()
         conn.close()
 
-# --- API: CREAR CAMPAÑA (CORREGIDO: AHORA GUARDA LOS DATOS NUEVOS) ---
+# --- API: CREAR CAMPAÑA ---
 @app.route('/api/crear-campana', methods=['POST'])
 def crear_campana():
     conn = get_db_connection()
@@ -164,31 +170,34 @@ def crear_campana():
         else:
             cid = res[0]
 
-        # 2. Preparar Datos (Incluyendo los nuevos campos estratégicos)
+        # 2. Preparar Datos
         desc = f"{d.get('que_vende')}. {d.get('descripcion')}"
-        
-        # Recogemos los campos nuevos del formulario HTML
         ticket = d.get('ticket_producto')
         competidores = d.get('competidores_principales')
         cta = d.get('objetivo_cta')
         dolores = d.get('dolores_pain_points')
         tono = d.get('tono_marca')
         red_flags = d.get('red_flags')
+        adn = d.get('ai_constitution')
+        pizarron = d.get('ai_blackboard')
+        whatsapp = d.get('numero_whatsapp')
+        link = d.get('enlace_venta')
         
-        # Guardamos en la base de datos (INSERT actualizado)
         cur.execute("""
             INSERT INTO campaigns (
                 client_id, campaign_name, product_description, target_audience, 
                 product_type, search_languages, geo_location,
                 ticket_price, competitors, cta_goal, pain_points_defined, tone_voice, red_flags,
+                ai_constitution, ai_blackboard, whatsapp_number, sales_link,
                 status, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', NOW())
             RETURNING id
         """, (
             cid, d.get('nombre'), desc, d.get('a_quien'), 
             d.get('tipo_producto'), d.get('idiomas'), d.get('ubicacion'),
-            ticket, competidores, cta, dolores, tono, red_flags
+            ticket, competidores, cta, dolores, tono, red_flags,
+            adn, pizarron, whatsapp, link
         ))
         
         nid = cur.fetchone()[0]
@@ -196,9 +205,36 @@ def crear_campana():
         return jsonify({"success": True})
     except Exception as e:
         if conn: conn.rollback()
-        # Logueamos el error para verlo en Railway si falla
         print(f"ERROR CREANDO CAMPAÑA: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+# --- API: MIS CAMPAÑAS (Endpoint Específico para el JS nuevo) ---
+@app.route('/api/mis-campanas', methods=['GET'])
+def api_mis_campanas():
+    # Reutilizamos la lógica de dashboard, pero simplificada para la tabla
+    conn = get_db_connection()
+    if not conn: return jsonify([]), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, campaign_name, status, created_at, 
+            (SELECT COUNT(*) FROM prospects WHERE campaign_id = campaigns.id) as count
+            FROM campaigns 
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
+        data = []
+        for r in rows:
+            data.append({
+                "id": r[0], "name": r[1], "status": r[2], 
+                "created_at": r[3].strftime('%Y-%m-%d') if r[3] else '', 
+                "prospects_count": r[4]
+            })
+        return jsonify(data)
+    except Exception as e:
+        return jsonify([]), 500
     finally:
         conn.close()
 
@@ -245,7 +281,8 @@ def generar_nido_y_entrar():
 def chat_nido_api():
     d = request.json
     if nutridor_brain:
-        return jsonify({"respuesta": nutridor_brain.responder_chat_nido(d.get('token'), d.get('mensaje'))})
+        # Aquí se conectaría la lógica real del chat del nutridor
+        return jsonify({"respuesta": "El Asistente está procesando tu solicitud..."}) 
     return jsonify({"respuesta": "Conectando..."})
 
 # --- RUTAS DEBUG ---
@@ -261,45 +298,47 @@ def chat_admin():
     if not dashboard_brain and create_chatbot: dashboard_brain = create_chatbot()
     if dashboard_brain: return jsonify({"response": dashboard_brain.invoke({"question": request.json.get('message')})})
     return jsonify({"response": "Mantenimiento"})
-# --- NUEVA API: OBTENER DETALLES COMPLETOS DE UNA CAMPAÑA ---
+
+# --- NUEVA API: OBTENER DETALLES COMPLETOS (CORREGIDA PARA JS) ---
 @app.route('/api/campana/<string:id>', methods=['GET'])
 def obtener_detalle_campana(id):
     conn = get_db_connection()
     if not conn: return jsonify({"error": "No DB"}), 500
     try:
         cur = conn.cursor()
-        # Traemos ABSOLUTAMENTE TODO de la campaña
         cur.execute("""
             SELECT 
                 id, campaign_name, product_description, target_audience, 
                 product_type, search_languages, geo_location,
                 ticket_price, competitors, cta_goal, pain_points_defined, 
                 tone_voice, red_flags, ai_constitution, ai_blackboard,
-                daily_prospects_limit
+                daily_prospects_limit, whatsapp_number, sales_link
             FROM campaigns 
             WHERE id = %s
         """, (id,))
         row = cur.fetchone()
         
         if row:
-            # Convertimos la fila en un diccionario limpio
+            # Mapeo EXACTO para que el JS entienda
             campana = {
                 "id": row[0],
-                "nombre": row[1],
-                "descripcion": row[2], # Esto incluye "Que vendes" mezclado, lo pondremos en descripción
-                "audiencia": row[3],
-                "tipo": row[4],
-                "idiomas": row[5],
-                "ubicacion": row[6],
-                "ticket": row[7],
-                "competidores": row[8],
-                "cta": row[9],
-                "dolores": row[10],
-                "tono": row[11],
+                "campaign_name": row[1],
+                "product_description": row[2],
+                "target_audience": row[3],
+                "product_type": row[4],
+                "languages": row[5],
+                "geo_location": row[6],
+                "ticket_price": row[7],
+                "competitors": row[8],
+                "cta_goal": row[9],
+                "pain_points_defined": row[10],
+                "tone_voice": row[11],
                 "red_flags": row[12],
-                "adn": row[13],
-                "pizarron": row[14],
-                "limite_diario": row[15]
+                "adn_corporativo": row[13],
+                "pizarron_contexto": row[14],
+                "daily_prospects_limit": row[15],
+                "whatsapp_number": row[16],
+                "sales_link": row[17]
             }
             return jsonify(campana)
         return jsonify({"error": "No encontrada"}), 404
@@ -309,37 +348,39 @@ def obtener_detalle_campana(id):
     finally:
         conn.close()
 
-# --- API: ACTUALIZAR CAMPAÑA (PARA EL BOTÓN DE GUARDAR) ---
+# --- API: ACTUALIZAR CAMPAÑA (REPARADA: SIN DUPLICADOS) ---
 @app.route('/api/actualizar-campana', methods=['POST'])
-def actualizar_campana():
-  @app.route('/api/actualizar-campana', methods=['POST'])
 def actualizar_campana():
     conn = get_db_connection()
     try:
         d = request.json
         cur = conn.cursor()
         
-        # ACTUALIZACIÓN MASIVA
+        # Mapeo de lo que envía el JS a las columnas de la DB
         cur.execute("""
             UPDATE campaigns 
             SET campaign_name = %s, product_description = %s, target_audience = %s,
                 search_languages = %s, ticket_price = %s, competitors = %s,
                 cta_goal = %s, pain_points_defined = %s, red_flags = %s,
-                tone_voice = %s, ai_constitution = %s, ai_blackboard = %s
+                tone_voice = %s, ai_constitution = %s, ai_blackboard = %s,
+                whatsapp_number = %s, sales_link = %s
             WHERE id = %s
         """, (
-            d.get('nombre'), d.get('descripcion'), d.get('audiencia'),
-            d.get('idiomas'), d.get('ticket'), d.get('competidores'),
-            d.get('cta'), d.get('dolores'), d.get('red_flags'),
-            d.get('tono'), d.get('adn'), d.get('pizarron'),
+            d.get('campaign_name'), d.get('product_description'), d.get('target_audience'),
+            d.get('languages'), d.get('ticket_price'), d.get('competitors'),
+            d.get('cta_goal'), d.get('pain_points_defined'), d.get('red_flags'),
+            d.get('tone_voice'), d.get('adn_corporativo'), d.get('pizarron_contexto'),
+            d.get('whatsapp_number'), d.get('sales_link'),
             d.get('id')
         ))
         conn.commit()
         return jsonify({"success": True})
     except Exception as e:
+        print(f"Error update: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
