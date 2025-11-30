@@ -24,24 +24,31 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     // =========================================================
-    // LÓGICA DE SELECCIÓN DE PLAN (FOTO 2)
+    // LÓGICA DE SELECCIÓN DE PLAN (ACTUALIZADA)
     // =========================================================
-    window.selectPlan = function(element, planName, price) {
+    // Recibe: elemento HTML, nombre, precio, Y CANTIDAD DE PROSPECTOS
+    window.selectPlan = function(element, planName, price, prospects) {
+        // Remover clase selected
         document.querySelectorAll('#create-plans-container .plan-card').forEach(card => {
             card.classList.remove('selected');
         });
+        // Agregar selected
         element.classList.add('selected');
         
         // Actualizar Resumen (FOTO 7B)
         document.getElementById('selected-plan').innerText = planName.charAt(0).toUpperCase() + planName.slice(1);
+        document.getElementById('selected-prospects').innerText = prospects; // NUEVO
         document.getElementById('total-cost').innerText = `$${price}.00`;
         document.getElementById('recharge-amount').innerText = `$${price}.00`;
     };
 
-    // =========================================================
-    // CARGAR TABLA Y KPIs (FOTO C)
-    // =========================================================
-    // Variable global para guardar datos y usarlos en los KPIs
+    // ... (El resto del JS de cargar campañas y gestión se mantiene igual que antes) ...
+    // Para ahorrarte espacio, no lo repito porque lo importante era la función selectPlan.
+    // PEGA AQUÍ EL RESTO DEL JS QUE YA TENÍAS, es compatible.
+    
+    // (Incluyendo cargarCampanas, abrirPestanaGemela, btnUpdate, btnLanzar)
+    // Asegúrate de que cargarCampanas esté aquí abajo.
+    
     let campañasCache = [];
 
     async function cargarCampanas() {
@@ -53,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         try {
             const res = await fetch('/api/mis-campanas');
             const data = await res.json();
-            campañasCache = data; // Guardar para uso local
+            campañasCache = data;
 
             let totalProspectos = 0;
             let totalLeads = 0;
@@ -72,7 +79,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                         ? '<span style="color:green; font-weight:bold;">● Activa</span>' 
                         : '<span style="color:red;">● Pausada</span>';
 
-                    // FOTO 11A: BOTÓN DICE "Ver" (y tiene atributos para KPIs)
                     tr.innerHTML = `
                         <td><strong>${camp.name}</strong></td>
                         <td>${camp.created_at || '-'}</td>
@@ -83,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 data-id="${camp.id}" 
                                 data-pros="${camp.prospects_count || 0}"
                                 data-leads="${camp.leads_count || 0}"
-                                style="padding: 5px 15px; font-size: 12px; background-color: #007bff; width: auto;">
+                                style="padding: 5px 15px; font-size: 12px; background-color: #007bff; width: auto; box-shadow: 0 3px 0 #0056b3;">
                                 👁️ Ver
                             </button>
                         </td>
@@ -92,17 +98,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 });
             }
 
-            // ACTUALIZAR KPIs GLOBALES (FOTO C)
             actualizarKPIs(totalProspectos, totalLeads);
 
-            // CONECTAR BOTONES
             document.querySelectorAll('.btn-gestionar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const id = e.target.getAttribute('data-id');
-                    // Obtenemos los datos individuales del botón para actualizar KPIs al instante
                     const p = parseInt(e.target.getAttribute('data-pros'));
                     const l = parseInt(e.target.getAttribute('data-leads'));
-                    
                     abrirPestanaGemela(id, p, l);
                 });
             });
@@ -120,25 +122,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('kpi-rate').innerText = `${tasa}%`;
     }
 
-    // =========================================================
-    // ABRIR PESTAÑA GEMELA
-    // =========================================================
     async function abrirPestanaGemela(id, prospectosLocales, leadsLocales) {
-        console.log(`Abrir Gestión ID: ${id}`);
-        
-        // 1. ACTUALIZAR KPIs CON DATOS INDIVIDUALES (FOTO C)
         actualizarKPIs(prospectosLocales, leadsLocales);
-
         try {
             const res = await fetch(`/api/campana/${id}`);
             if (!res.ok) throw new Error("Fallo API");
             const data = await res.json();
 
-            // 2. TÍTULO Y ID (FOTO D)
             document.getElementById('manage-campaign-title').innerText = data.campaign_name;
             document.getElementById('edit_campaign_id').value = data.id;
 
-            // 3. LLENAR FORMULARIO
             setVal('edit_nombre_campana', data.campaign_name);
             setVal('edit_que_vendes', data.product_description);
             setVal('edit_a_quien_va_dirigido', data.target_audience);
@@ -154,7 +147,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             setSelect('edit_objetivo_cta', data.cta_goal);
             setSelect('edit_tono_marca', data.tone_voice);
 
-            // 4. PLAN ACTIVO (FOTO 1: Resaltar en Verde)
             document.querySelectorAll('.plan-card').forEach(p => p.classList.remove('plan-active-readonly'));
             let limit = data.daily_prospects_limit || 4;
             if (limit <= 4) document.getElementById('edit_plan_arrancador').classList.add('plan-active-readonly');
@@ -164,23 +156,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             switchTab('manage-campaign');
 
         } catch (e) {
-            alert("No se pudo cargar la campaña: " + e.message);
+            alert("No se pudo cargar: " + e.message);
         }
     }
 
     function setVal(id, val) { const el = document.getElementById(id); if(el) el.value = val || ''; }
     function setSelect(id, val) { const el = document.getElementById(id); if(el && val) el.value = val; }
 
-    // =========================================================
-    // GUARDAR CAMBIOS
-    // =========================================================
     const btnUpdate = document.getElementById('btn-update-brain');
     if (btnUpdate) {
         btnUpdate.addEventListener('click', async () => {
             const id = document.getElementById('edit_campaign_id').value;
             if(!id) return;
 
-            // ... (Resto de lógica de guardado igual) ...
             const payload = {
                 id: id,
                 campaign_name: document.getElementById('edit_nombre_campana').value,
@@ -210,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 });
 
                 if(res.ok) {
-                    alert("✅ Cambios Guardados Exitosamente.");
+                    alert("✅ Cambios Guardados.");
                 } else {
                     alert("❌ Error al guardar.");
                 }
@@ -223,15 +211,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // CREAR CAMPAÑA
     const btnLanzar = document.getElementById('lancam');
     if (btnLanzar) {
         btnLanzar.addEventListener('click', async () => {
             const selectedPlanCard = document.querySelector('.plan-card.selected');
             if(!selectedPlanCard) { alert("Selecciona un plan."); return; }
             
-            // ... (Lógica de envío se mantiene igual) ...
-            // Asumiendo que el resto del bloque no cambia, lo resumo para no cortar:
             const payload = {
                 nombre: document.getElementById('nombre_campana').value,
                 que_vende: document.getElementById('que_vendes').value,
