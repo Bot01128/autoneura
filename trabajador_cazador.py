@@ -2,9 +2,11 @@ import os
 import json
 import logging
 import datetime
+import time
 from apify_client import ApifyClient
 import psycopg2
 from psycopg2.extras import Json
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 # --- CONFIGURACIÓN INICIAL ---
@@ -13,6 +15,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - CAZADOR - %(leveln
 
 APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+
+# --- CONFIGURACIÓN DE IA BLINDADA (LITE) ---
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+    # USAMOS EL MODELO LITE PARA QUE NO SALTE EL ERROR 429
+    MODELO_IA = "models/gemini-2.0-flash-lite-preview-02-05"
+else:
+    MODELO_IA = None
 
 # --- CONSTANTES FINANCIERAS (EL BOZAL) ---
 PRESUPUESTO_POR_PROSPECTO_CONTRATADO = 4.0  # Dólares USD
@@ -24,9 +35,7 @@ MULTIPLICADOR_RAW_LEADS = 200               # Cuántos leads crudos caben en 1 d
 def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
     """
     Calcula si tenemos saldo para cazar hoy.
-    Regla: No gastar más de $4 x (Prospectos Diarios Contratados) al mes.
     """
-    # Corrección: Asegurar que sea entero
     if not limite_diario_contratado:
         limite_diario_contratado = 4
     
@@ -36,10 +45,7 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
     except:
         limite_diario_int = 4
 
-    # 1. Calcular Techo Financiero
     presupuesto_total_mes = limite_diario_int * PRESUPUESTO_POR_PROSPECTO_CONTRATADO
-    
-    # 2. Traducir Dinero a "Cabezas" (Raw Leads)
     tope_leads_mensual = presupuesto_total_mes * MULTIPLICADOR_RAW_LEADS
 
     conn = None
@@ -47,7 +53,6 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
-        # 3. Contar cuánto hemos cazado este mes
         hoy = datetime.date.today()
         inicio_mes = hoy.replace(day=1)
         
@@ -61,20 +66,18 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
         cazados_mes_actual = cur.fetchone()[0]
         cur.close()
 
-        # 4. Decisión
         saldo_restante = tope_leads_mensual - cazados_mes_actual
         
         if saldo_restante <= 0:
-            logging.warning(f"🛑 FRENO FINANCIERO: Se alcanzó el tope mensual de {int(tope_leads_mensual)} leads crudos. Cazador duerme.")
+            logging.warning(f"🛑 FRENO FINANCIERO: Tope mensual alcanzado. Cazador duerme.")
             return 0
         
-        # Calculamos la cuota diaria segura
         cuota_diaria_sugerida = int(tope_leads_mensual / 30)
         cantidad_a_cazar = min(cuota_diaria_sugerida, saldo_restante)
         
         if cantidad_a_cazar < 5: cantidad_a_cazar = 5
 
-        logging.info(f"💰 PRESUPUESTO: Llevamos {cazados_mes_actual}/{int(tope_leads_mensual)}. Autorizado cazar hoy: {cantidad_a_cazar}")
+        logging.info(f"💰 PRESUPUESTO: {cazados_mes_actual}/{int(tope_leads_mensual)}. Autorizado hoy: {cantidad_a_cazar}")
         return cantidad_a_cazar
 
     except Exception as e:
@@ -83,24 +86,64 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
     finally:
         if conn: conn.close()
 
-# --- 2. CONSULTA AL ARSENAL ---
+# --- 2. CEREBRO ESTRATÉGICO (IA + FALLBACK) ---
 
-def consultar_arsenal(plataforma_objetivo, tipo_producto):
-    logging.info(f"🔎 Consultando Arsenal para: Plataforma={plataforma_objetivo}")
+def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
+    """
+    Intenta mejorar la búsqueda con IA. Si la IA falla (Error 429),
+    devuelve la búsqueda original sin romper el programa.
+    """
+    if not MODELO_IA or not GOOGLE_API_KEY:
+        return busqueda_original
+
+    logging.info("🧠 IA: Optimizando búsqueda...")
     conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
-        # Busca el mejor bot activo para la plataforma
-        # NOTA: Requiere que hayas ejecutado el SQL de corrección en Supabase
+        cur.execute("SELECT name, product_name, target_audience, mission_statement FROM campaigns WHERE id = %s", (campana_id,))
+        row = cur.fetchone()
+        cur.close()
+
+        if not row: return busqueda_original
+
+        nombre_c, producto, target, mision = row
+        
+        prompt = f"""
+        CONTEXTO: Producto: {producto}, Target: {target}, Misión: {mision}, Plataforma: {plataforma}
+        INTENCIÓN: "{busqueda_original}"
+        TAREA: Genera UNA frase de búsqueda optimizada para encontrar compradores reales.
+        SOLO RESPONDE LA FRASE.
+        """
+
+        model = genai.GenerativeModel(MODELO_IA)
+        response = model.generate_content(prompt)
+        busqueda_optimizada = response.text.strip().replace('"', '')
+
+        logging.info(f"🎯 IA: '{busqueda_original}' -> '{busqueda_optimizada}'")
+        return busqueda_optimizada
+
+    except Exception as e:
+        # AQUI ESTA LA PROTECCION: Si la IA falla, NO detenemos el programa.
+        logging.warning(f"⚠️ IA Falló o Cuota Excedida. Usando búsqueda original. Error: {e}")
+        return busqueda_original
+    finally:
+        if conn: conn.close()
+
+# --- 3. CONSULTA AL ARSENAL ---
+
+def consultar_arsenal(plataforma_objetivo, tipo_producto):
+    conn = None
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
         query = """
             SELECT actor_id, input_config 
             FROM bot_arsenal 
-            WHERE platform = %s 
-            AND is_active = TRUE
-            ORDER BY confidence_level DESC
-            LIMIT 1;
+            WHERE platform = %s AND is_active = TRUE
+            ORDER BY confidence_level DESC LIMIT 1;
         """
         cur.execute(query, (plataforma_objetivo,))
         resultado = cur.fetchone()
@@ -111,18 +154,13 @@ def consultar_arsenal(plataforma_objetivo, tipo_producto):
         else:
             return {"actor_id": "compass/crawler-google-places", "config_extra": {}}
     except Exception as e:
-        logging.error(f"❌ Error Arsenal (Usando Default): {e}")
         return {"actor_id": "compass/crawler-google-places", "config_extra": {}}
     finally:
         if conn: conn.close()
 
-# --- 3. CONFIGURACIÓN AHORRADORA (INPUTS) ---
+# --- 4. PREPARAR INPUT (AHORRO APIFY) ---
 
 def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_extra):
-    """
-    Configura Apify para gastar lo MÍNIMO posible.
-    """
-    # CORRECCIÓN DE ERROR: Validar que ubicación sea string y no esté vacía
     if not ubicacion or str(ubicacion).lower() == "none" or ubicacion == "":
         ubicacion = "United States"
     
@@ -134,6 +172,7 @@ def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_ext
     if config_extra:
         base_input.update(config_extra)
 
+    # Reglas de Ahorro Extremo
     reglas_ahorro = {
         "downloadImages": False,
         "downloadVideos": False,
@@ -147,12 +186,10 @@ def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_ext
     if "google" in actor_id:
         base_input.update({
             "searchStringsArray": [busqueda],
-            "locationQuery": str(ubicacion), # Forzamos string para evitar error
+            "locationQuery": str(ubicacion),
             "maxCrawledPlacesPerSearch": int(max_items),
             "maxImages": 0,
-            # "website": True <-- ELIMINADO: Causaba error 'must be string' en algunos actores
         })
-    
     elif "tiktok" in actor_id or "instagram" in actor_id:
         base_input.update({
             "searchQueries": [busqueda],
@@ -163,20 +200,12 @@ def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_ext
     base_input.update(reglas_ahorro)
     return base_input
 
-# --- 4. FILTRO DE CALIDAD Y NORMALIZACIÓN ---
+# --- 5. FILTRO Y NORMALIZACIÓN ---
 
 def validar_y_normalizar(item, plataforma, bot_id):
-    """
-    Decide si el prospecto vale la pena o es basura.
-    """
     datos = {
-        "business_name": None,
-        "website_url": None,
-        "phone_number": None,
-        "email": None, 
-        "social_profiles": {},
-        "raw_data": item,
-        "source_bot_id": bot_id
+        "business_name": None, "website_url": None, "phone_number": None,
+        "email": None, "social_profiles": {}, "raw_data": item, "source_bot_id": bot_id
     }
 
     if "google" in bot_id or plataforma == "Google Maps":
@@ -185,9 +214,8 @@ def validar_y_normalizar(item, plataforma, bot_id):
         datos["phone_number"] = item.get("phone")
         datos["email"] = item.get("email") 
         
-        # FILTRO MAESTRO: Si es empresa y no tiene NADA de contacto, es basura.
-        tiene_contacto = datos["phone_number"] or datos["website_url"] or datos["email"]
-        if not tiene_contacto:
+        # SI NO HAY CONTACTO, ES BASURA
+        if not (datos["phone_number"] or datos["website_url"] or datos["email"]):
             return None 
 
     elif "tiktok" in bot_id:
@@ -202,33 +230,33 @@ def validar_y_normalizar(item, plataforma, bot_id):
         datos["social_profiles"] = {"instagram": f"https://www.instagram.com/{item.get('username')}"}
 
     if not datos["business_name"]: return None
-
     return datos
 
-# --- 5. FUNCIÓN PRINCIPAL ---
+# --- 6. EJECUCIÓN PRINCIPAL ---
 
 def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Maps", tipo_producto="Tangible", limite_diario_contratado=4):
     
-    # 1. VERIFICACIÓN FINANCIERA
+    # A. Verificación de Fondos
     cantidad_a_cazar = verificar_presupuesto_mensual(campana_id, limite_diario_contratado)
-    
     if cantidad_a_cazar <= 0:
-        logging.info("⏸️ Cazador en pausa por presupuesto o fin de jornada.")
+        logging.info("⏸️ Cazador en pausa.")
         return False
 
     logging.info(f"🚀 CAZANDO: {cantidad_a_cazar} prospectos | Campaña: {campana_id}")
 
-    # 2. Consultar Arsenal
+    # B. Optimización IA (Con protección anti-crash)
+    busqueda_final = optimizar_busqueda_con_ia(campana_id, prompt_busqueda, plataforma)
+    time.sleep(1)
+
+    # C. Ejecución Apify
     bot_info = consultar_arsenal(plataforma, tipo_producto)
     actor_id = bot_info["actor_id"]
-    config_extra = bot_info["config_extra"]
-
-    # 3. Ejecutar Apify
+    
     try:
         client = ApifyClient(APIFY_TOKEN)
-        run_input = preparar_input_blindado(actor_id, prompt_busqueda, ubicacion, cantidad_a_cazar, config_extra)
+        run_input = preparar_input_blindado(actor_id, busqueda_final, ubicacion, cantidad_a_cazar, bot_info["config_extra"])
         
-        logging.info(f"📡 Apify Run ({actor_id})...")
+        logging.info(f"📡 Apify Run ({actor_id}) -> '{busqueda_final}'")
         run = client.actor(actor_id).call(run_input=run_input)
         
         if not run or run.get('status') != 'SUCCEEDED':
@@ -237,18 +265,14 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
 
         dataset_id = run["defaultDatasetId"]
         
-        # 4. Procesar Resultados
+        # D. Guardado
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
-        contador_guardados = 0
-        dataset_items = client.dataset(dataset_id).iterate_items()
-        
-        for item in dataset_items:
-            datos_limpios = validar_y_normalizar(item, plataforma, actor_id)
-            
-            if not datos_limpios: 
-                continue 
+        contador = 0
+        for item in client.dataset(dataset_id).iterate_items():
+            datos = validar_y_normalizar(item, plataforma, actor_id)
+            if not datos: continue 
 
             try:
                 cur.execute(
@@ -256,36 +280,22 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
                     INSERT INTO prospects 
                     (campaign_id, business_name, website_url, phone_number, captured_email, social_profiles, source_bot_id, status, raw_data, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, 'cazado', %s, NOW())
-                    ON CONFLICT DO NOTHING 
-                    RETURNING id;
+                    ON CONFLICT DO NOTHING RETURNING id;
                     """,
-                    (
-                        campana_id,
-                        datos_limpios["business_name"],
-                        datos_limpios["website_url"],
-                        datos_limpios["phone_number"],
-                        datos_limpios["email"],
-                        Json(datos_limpios["social_profiles"]),
-                        actor_id,
-                        Json(datos_limpios["raw_data"])
-                    )
+                    (campana_id, datos["business_name"], datos["website_url"], datos["phone_number"], 
+                     datos["email"], Json(datos["social_profiles"]), actor_id, Json(datos["raw_data"]))
                 )
-                
-                if cur.rowcount > 0:
-                    contador_guardados += 1
-                    
-            except Exception as db_err:
+                if cur.rowcount > 0: contador += 1
+            except:
                 conn.rollback()
-                continue
             else:
                 conn.commit()
 
         cur.close()
         conn.close()
-        
-        logging.info(f"✅ FINALIZADO. Guardados: {contador_guardados} (Se filtró la basura).")
+        logging.info(f"✅ FINALIZADO. Guardados: {contador}")
         return True
 
     except Exception as e:
-        logging.critical(f"🔥 Error en worker_cazador: {e}")
+        logging.critical(f"🔥 Error Crítico Cazador: {e}")
         return False

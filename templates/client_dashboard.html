@@ -7,18 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='client_style.css') }}">
-    <style>
-        /* Estilos añadidos para que los SELECT se vean igual que los INPUTS */
-        select {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            border: 1px solid #ccc; /* Asume el borde estándar */
-            border-radius: 4px;
-            background-color: white;
-            font-size: 14px; /* Ajustado al tamaño probable de tus inputs */
-        }
-    </style>
 </head>
 <body>
     <div class="top-bar">
@@ -26,18 +14,15 @@
         <div class="user-info">
             <span><strong>{{ _('Saldo:') }}</strong> $0.00</span>
             <button class="recharge-btn">{{ _('+ Recargar Saldo') }}</button>
-            <button id="logout-btn" class="recharge-btn" style="background-color: #6c757d; border-color: #5a6268;">Cerrar Sesión</button>
+            <button id="logout-btn" class="recharge-btn" style="background-color: #6c757d; border-color: #5a6268; box-shadow:none;">Cerrar Sesión</button>
         </div>
     </div>
     <div class="container">
         <div class="left-panel">
-            <div class="chat-header">
-                <h2>Inteligencia Artificial AutoNeura</h2>
-            </div>
+            <div class="chat-header"><h2>Inteligencia Artificial AutoNeura</h2></div>
             <div class="chat-window">
                 <div class="chat-messages" id="chat-messages">
-                    <p class="msg-assistant">{{ _("¡Hola! Soy la Inteligencia Artificial AutoNeura, Estoy exclusivamente para generar ventas a través de todos los medios por internet y trabajo 24/7 los 365 días del año nunca descanso busco analizo y proceso seguimientos a los prospectos de clientes de tus productos. No tendrás gastos por procesos si no por resultados, no pagas los miles de Prospectos que nosotros buscaremos en redes sociales como Facebook, Instagram, TIKTOK, X, etc. Como sucede con otros ADS que cobran por interacciones como: Clics, impresiones o vistas, no por ventas directas ni resultados garantizados. Te garantizo que soy tu mejor socio estratégico de Inteligencia Artificial aunque tú te quedes con toda la ganancia y yo me quedare con la satisfacción de haberte ayudado. Mi misión es simple: Te Conseguiré clientes utilizando técnicas Psicológicas y de Marketing que superan a todos los humanos juntos para encontrar prospectos, contactarlos, hacerle seguimientos hasta que le den comprar. Mi trabajo es tan efectivo que si, después de mi seguimiento avanzado, ningún prospecto hace clic en tu botón de compra: te daré un mes de mi servicio completamente gratis.") }}</p>
-                    <p class="msg-assistant">{{ _("¿Tienes alguna pregunta?") }}</p>
+                    <p class="msg-assistant">{{ _("¡Hola! Soy tu Asistente de Control. Pregúntame sobre tus métricas.") }}</p>
                 </div>
                 <form id="chat-form" class="chat-input">
                     <input type="text" id="user-input" placeholder="{{ _('Escribe tu pregunta...') }}">
@@ -45,9 +30,12 @@
                 </form>
             </div>
         </div>
+
         <div class="right-panel">
+            <!-- PESTAÑAS -->
             <div class="tab-nav">
                 <button class="tab-button active" data-tab="my-campaigns">{{ _('Mis Campañas') }}</button>
+                <button class="tab-button" data-tab="manage-campaign" id="btn-manage-campaign">{{ _('Gestionar Campaña') }}</button>
                 <button class="tab-button" data-tab="create-campaign">{{ _('Crear Campaña') }}</button>
                 <button class="tab-button" data-tab="prospect-flow">{{ _('Flujo de Prospectos') }}</button>
                 <button class="tab-button" data-tab="conversations">{{ _('Conversaciones') }}</button>
@@ -55,195 +43,184 @@
                 <button class="tab-button" data-tab="suggestions">{{ _('Tus Sugerencias') }}</button>
             </div>
 
+            <!-- 1. MIS CAMPAÑAS -->
             <div class="tab-content" id="my-campaigns" style="display: block;">
                 <div class="kpi-container">
-                    <div class="kpi-card">
-                        <span class="kpi-title">Prospectos Totales</span>
-                        <span class="kpi-value">252</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-title">Leads Calificados</span>
-                        <span class="kpi-value">134</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-title">Tasa de Conversión</span>
-                        <span class="kpi-value rate-success">53%</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-title">Mejor Campaña</span>
-                        <span class="kpi-value-small">Búsqueda de Spas</span>
-                    </div>
+                    <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Leads Calificados</span><span class="kpi-value" id="kpi-leads">0</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Tasa de Conversión</span><span class="kpi-value rate-success" id="kpi-rate">0%</span></div>
                 </div>
                 <h2>{{ _('Mis Campañas Activas y Pasadas') }}</h2>
                 <table class="campaign-table">
                     <thead>
-                        <tr>
-                            <th>{{ _('Nombre de la Campaña') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th>
-                            <th>{{ _('Prospectos Encontrados') }}</th><th>{{ _('Leads Calificados') }}</th>
-                        </tr>
+                        <tr><th>{{ _('Nombre') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th><th>{{ _('Encontrados') }}</th><th>{{ _('Acción') }}</th></tr>
                     </thead>
-                    <tbody>
-                        <tr><td>Búsqueda de Spas en Medellín</td><td>13/10/2025</td><td>Completada ✅</td><td>152</td><td>89</td></tr>
-                        <tr><td>Restaurantes Italianos (Miami)</td><td>12/10/2025</td><td>Analizando ⚙️</td><td>100</td><td>45</td></tr>
-                    </tbody>
+                    <tbody id="campaigns-table-body"></tbody>
                 </table>
             </div>
 
+            <!-- 2. CREAR CAMPAÑA -->
             <div class="tab-content" id="create-campaign" style="display: none;">
-                <h2>{{ _('Configurar Campaña de Prospección') }}</h2>
+                <h2>{{ _('Configurar Nueva Campaña') }}</h2>
                 <div class="form-section">
                     <label>{{ _('1. Selecciona un Plan') }}</label>
-                    <div class="plans-container">
-                        <div class="plan-card" data-plan="arrancador"><h4>{{ _('El Arrancador') }}</h4><div class="price">$149<span>/mes</span></div><small>4 prospectos/día</small></div>
-                        <div class="plan-card" data-plan="profesional"><h4>{{ _('El Profesional') }}</h4><div class="price">$399<span>/mes</span></div><small>15 prospectos/día</small></div>
-                        <div class="plan-card" data-plan="dominador"><h4>{{ _('El Dominador') }}</h4><div class="price">$999<span>/mes</span></div><small>50 prospectos/día</small></div>
+                    <div class="plans-container" id="create-plans-container">
+                        <!-- onclick actualizado con el número de prospectos -->
+                        <div class="plan-card selected" data-plan="arrancador" data-price="149" onclick="selectPlan(this, 'arrancador', 149, 4)">
+                            <h4>{{ _('El Arrancador') }}</h4><div class="price">$149<span>/mes</span></div><small>4 prospectos/día</small>
+                        </div>
+                        <div class="plan-card" data-plan="profesional" data-price="399" onclick="selectPlan(this, 'profesional', 399, 15)">
+                            <h4>{{ _('El Profesional') }}</h4><div class="price">$399<span>/mes</span></div><small>15 prospectos/día</small>
+                        </div>
+                        <div class="plan-card" data-plan="dominador" data-price="999" onclick="selectPlan(this, 'dominador', 999, 50)">
+                            <h4>{{ _('El Dominador') }}</h4><div class="price">$999<span>/mes</span></div><small>50 prospectos/día</small>
+                        </div>
                     </div>
                 </div>
                 <div class="form-section">
-                    <label for="prospects-per-day">{{ _('2. O personaliza la cantidad de Prospectos por Día') }}</label>
+                    <label>{{ _('2. Personaliza cantidad diaria') }}</label>
                     <input type="number" id="prospects-per-day" value="4" min="4">
                 </div>
+                <!-- ... Resto del Formulario ... -->
                 <div class="form-section">
-                    <label>{{ _('3. Define tu Campaña') }}</label>
-                    <label for="nombre_campana" style="margin-top:10px;">{{ _('Nombre de la Campaña') }}</label>
-                    <input type="text" id="nombre_campana" placeholder="{{ _('Ej: Búsqueda de Restaurantes en Miami') }}">
-                    <label for="que_vendes" style="margin-top:15px;">{{ _('¿Qué vendes?') }}</label>
-                    <input type="text" id="que_vendes" placeholder="{{ _('Ej: Software para restaurantes') }}">
-                    <label for="a_quien_va_dirigido" style="margin-top: 15px;">{{ _('¿A quién va dirigido?') }}</label>
-                    <input type="text" id="a_quien_va_dirigido" placeholder="{{ _('Ej: Restaurantes italianos, Ferreterías') }}">
-                    
-                    <!-- Nuevos campos agregados -->
-                    <label for="idiomas_busqueda" style="margin-top: 15px;">{{ _('¿En qué idiomas quieres buscar? (Sepáralos por comas)') }}</label>
-                    <input type="text" id="idiomas_busqueda" placeholder="{{ _('Ej: Español, Inglés') }}">
-
-                    <label for="ubicacion_geografica" style="margin-top: 15px;">{{ _('¿Ubicación geográfica? (País, Ciudad)') }}</label>
-                    <input type="text" id="ubicacion_geografica" placeholder="{{ _('Ej: Estados Unidos, Miami') }}">
-                    
-                    <!-- INICIO: PREGUNTAS DE ESTRATEGIA INYECTADAS -->
-                    <label for="ticket_producto" style="margin-top: 15px;">{{ _('1. ¿Cuál es el "Ticket" o precio aproximado del producto?') }}</label>
-                    <input type="text" id="ticket_producto" placeholder="{{ _('Ej: $500, High Ticket, $50/mes') }}">
-
-                    <label for="competidores_principales" style="margin-top: 15px;">{{ _('2. ¿Quiénes son tus 3 principales competidores?') }}</label>
-                    <input type="text" id="competidores_principales" placeholder="{{ _('Ej: Empresa A, @cuenta_competencia, Marca B') }}">
-
-                    <label for="objetivo_cta" style="margin-top: 15px;">{{ _('3. ¿Cuál es el objetivo del primer mensaje (CTA)?') }}</label>
-                    <select id="objetivo_cta">
-                        <option value="vender_directo">{{ _('Vender directo') }}</option>
-                        <option value="agendar_llamada">{{ _('Agendar una llamada') }}</option>
-                        <option value="descargar_pdf">{{ _('Que descarguen un PDF') }}</option>
-                        <option value="solo_saludar">{{ _('Solo saludar') }}</option>
+                    <label>{{ _('3. Estrategia de Mercado') }}</label>
+                    <input type="text" id="nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
+                    <input type="text" id="que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;">
+                    <input type="text" id="a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;">
+                    <input type="text" id="idiomas_busqueda" placeholder="{{ _('Idiomas (Ej: Español, Inglés)') }}" style="margin-top:10px;">
+                    <input type="text" id="ubicacion_geografica" placeholder="{{ _('Ubicación (Ej: Miami, USA)') }}" style="margin-top:10px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <input type="text" id="ticket_producto" placeholder="{{ _('Ticket Promedio ($)') }}">
+                        <select id="objetivo_cta">
+                            <option value="agendar_llamada">Agendar Llamada</option>
+                            <option value="vender_directo">Venta Directa</option>
+                            <option value="whatsapp">Chat WhatsApp</option>
+                        </select>
+                    </div>
+                    <input type="text" id="competidores_principales" placeholder="{{ _('Competidores Principales') }}" style="margin-top:10px;">
+                    <textarea id="dolores_pain_points" rows="2" placeholder="{{ _('Dolores del Cliente') }}" style="margin-top:10px;"></textarea>
+                    <textarea id="red_flags" rows="2" placeholder="{{ _('Red Flags') }}" style="margin-top:10px;"></textarea>
+                    <select id="tono_marca" style="margin-top:10px;">
+                        <option value="corporativo">Tono Corporativo</option>
+                        <option value="amigable">Tono Amigable</option>
+                        <option value="agresivo">Tono Agresivo</option>
                     </select>
-
-                    <label for="dolores_pain_points" style="margin-top: 15px;">{{ _('4. ¿Cuáles son los "Dolores" (Pain Points) principales que resuelve tu producto?') }}</label>
-                    <textarea id="dolores_pain_points" rows="3" placeholder="{{ _('Ej: Cansado de procesos lentos, Pagando de más, Sin tiempo...') }}"></textarea>
-
-                    <label for="tono_marca" style="margin-top: 15px;">{{ _('5. ¿Qué tono de voz debe tener la marca?') }}</label>
-                    <select id="tono_marca">
-                        <option value="corporativo">{{ _('Corporativo') }}</option>
-                        <option value="amigable_casual">{{ _('Amigable/Casual') }}</option>
-                        <option value="agresivo_disruptivo">{{ _('Agresivo/Disruptivo') }}</option>
-                        <option value="lujoso">{{ _('Lujoso') }}</option>
-                    </select>
-
-                    <label for="red_flags" style="margin-top: 15px;">{{ _('6. ¿Existen "Red Flags" (Criterios de Exclusión)?') }}</label>
-                    <textarea id="red_flags" rows="3" placeholder="{{ _('Ej: Cuentas sin foto, Perfiles privados, Estética descuidada...') }}"></textarea>
-                    <!-- FIN: PREGUNTAS DE ESTRATEGIA INYECTADAS -->
-
+                </div>
+                <div class="form-section brain-box">
+                    <h3>🧠 {{ _('Entrena a tu Vendedor IA') }}</h3>
+                    <label>🧬 {{ _('ADN Corporativo') }}</label>
+                    <textarea id="ai_constitution" rows="5"></textarea>
+                    <label style="margin-top: 15px;">⚡ {{ _('Pizarrón Táctico') }}</label>
+                    <textarea id="ai_blackboard" class="blackboard-field" rows="3"></textarea>
                 </div>
                 <div class="form-section">
-                    <label>{{ _('4. Describe tu Producto y Contacto') }}</label>
-                    <div class="form-section" style="margin-top:15px;"><label>{{ _('Tipo de Producto') }}</label><div class="checkbox-group"><input type="checkbox" id="tipo_producto_tangible" name="tipo_producto"><label for="tipo_producto_tangible">{{ _('Tangible') }}</label></div><div class="checkbox-group"><input type="checkbox" id="tipo_producto_intangible" name="tipo_producto"><label for="tipo_producto_intangible">{{ _('Intangible') }}</label></div></div>
-                    <div class="form-section"><label for="descripcion_producto">{{ _('Descripción del Producto/Servicio') }}</label><textarea id="descripcion_producto" maxlength="25000" placeholder="{{ _('Describe qué vendes...') }}"></textarea></div>
-                    <div class="form-section"><label for="numero_whatsapp">{{ _('Número de WhatsApp') }}</label><input type="tel" id="numero_whatsapp"></div>
-                    <div class="form-section"><label for="enlace_venta">{{ _('Enlace de Venta') }}</label><input type="text" id="enlace_venta"></div>
+                    <label>{{ _('5. Datos de Contacto') }}</label>
+                    <div class="radio-group">
+                        <label class="radio-item"><input type="radio" name="tipo_producto" value="tangible" checked> {{ _('Tangible') }}</label>
+                        <label class="radio-item"><input type="radio" name="tipo_producto" value="intangible"> {{ _('Intangible') }}</label>
+                    </div>
+                    <input type="tel" id="numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
+                    <input type="text" id="enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
-                <div id="summary-box" class="form-section summary-box">
+
+                <!-- RESUMEN FINAL (FOTO 7B - CON PROSPECTOS) -->
+                <div id="summary-box" class="summary-box">
                     <h4>{{ _('Resumen Final') }}</h4>
-                    <p>Plan Seleccionado: <strong id="selected-plan"></strong></p>
-                    <p>Prospectos por día: <strong id="daily-prospects"></strong></p>
-                    <p>Costo Mensual Final: <strong id="total-cost"></strong></p>
-                    <hr class="summary-divider">
-                    <p>Saldo en tu Cuenta: <strong id="current-balance">$0.00</strong></p>
-                    <p id="recharge-line" class="recharge-needed">Mínimo a Recargar: <strong id="recharge-amount"></strong></p>
-                    <p id="remaining-line" class="balance-ok" style="display:none;">Saldo Restante: <strong id="remaining-balance"></strong></p>
+                    <p>{{ _('Plan Seleccionado:') }} <strong id="selected-plan">El Arrancador</strong></p>
+                    <p>{{ _('Prospectos por día:') }} <strong id="selected-prospects">4</strong></p>
+                    <p>{{ _('Costo Mensual Final:') }} <strong id="total-cost">$149.00</strong></p>
+                    <div class="summary-divider"></div>
+                    <p>{{ _('Saldo en tu Cuenta:') }} <strong>$0.00</strong></p>
+                    <p style="color: #dc3545;">{{ _('Mínimo a Recargar:') }} <strong id="recharge-amount">$149.00</strong></p>
                 </div>
                 <div id="action-buttons-container">
                     <button id="lancam" class="cta-button">{{ _('Lanzar Campaña') }}</button>
                 </div>
             </div>
 
-            <div class="tab-content" id="prospect-flow" style="display: none;">
-                <h2>{{ _('Flujo de Prospectos') }}</h2>
-                <div class="flow-container">
-                    <div class="flow-column"><h4>🕵️‍♂️ Cazados</h4><div class="prospect-card">Ferretería Central</div><div class="prospect-card">Tornillos y Más</div></div>
-                    <div class="flow-column"><h4>🔬 En Análisis</h4><div class="prospect-card">Aceros Industriales</div></div>
-                    <div class="flow-column"><h4>🧠 Inteligencia Lista</h4><div class="prospect-card">Depósito El Constructor</div></div>
-                    <div class="flow-column"><h4>🚀 Listo para Contactar</h4><div class="prospect-card">Maquinaria Pesada SAS</div></div>
+            <!-- 3. PESTAÑA GESTIONAR -->
+            <div class="tab-content" id="manage-campaign" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
+                    <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
+                </div>
+
+                <input type="hidden" id="edit_campaign_id">
+
+                <div class="form-section">
+                    <label>{{ _('1. Plan Actual (Solo Lectura)') }}</label>
+                    <div class="plans-container">
+                        <div class="plan-card plan-disabled" id="edit_plan_arrancador"><h4>{{ _('El Arrancador') }}</h4><small>4/día</small></div>
+                        <div class="plan-card plan-disabled" id="edit_plan_profesional"><h4>{{ _('El Profesional') }}</h4><small>15/día</small></div>
+                        <div class="plan-card plan-disabled" id="edit_plan_dominador"><h4>{{ _('El Dominador') }}</h4><small>50/día</small></div>
+                    </div>
+                </div>
+
+                <!-- Formulario Edición (Mismo contenido) -->
+                <div class="form-section">
+                    <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
+                    <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
+                    <input type="text" id="edit_que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;">
+                    <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;">
+                    <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;">
+                    <input type="text" id="edit_ubicacion_geografica" disabled style="margin-top:10px; background-color:#e9ecef;" title="No editable">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio ($)') }}">
+                        <select id="edit_objetivo_cta">
+                            <option value="agendar_llamada">Agendar Llamada</option>
+                            <option value="vender_directo">Venta Directa</option>
+                            <option value="whatsapp">Chat WhatsApp</option>
+                        </select>
+                    </div>
+                    <input type="text" id="edit_competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;">
+                    <textarea id="edit_dolores_pain_points" rows="2" placeholder="{{ _('Dolores') }}" style="margin-top:10px;"></textarea>
+                    <textarea id="edit_red_flags" rows="2" placeholder="{{ _('Red Flags') }}" style="margin-top:10px;"></textarea>
+                    <select id="edit_tono_marca" style="margin-top:10px;">
+                        <option value="corporativo">Tono Corporativo</option>
+                        <option value="amigable">Tono Amigable</option>
+                        <option value="agresivo">Tono Agresivo</option>
+                    </select>
+                </div>
+                <div class="form-section brain-box">
+                    <h3>🧠 {{ _('Modificar Cerebro de la IA') }}</h3>
+                    <label>🧬 {{ _('ADN Corporativo') }}</label>
+                    <textarea id="edit_ai_constitution" rows="6"></textarea>
+                    <label style="margin-top: 15px;">⚡ {{ _('Pizarrón Táctico') }}</label>
+                    <textarea id="edit_ai_blackboard" class="blackboard-field" rows="4"></textarea>
+                </div>
+                <div class="form-section">
+                    <label>{{ _('5. Datos de Contacto') }}</label>
+                    <input type="tel" id="edit_numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
+                    <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
+                </div>
+
+                <div id="action-buttons-container" style="margin-top: 30px;">
+                    <button id="btn-update-brain" class="cta-button">
+                        💾 {{ _('Guardar Cambios') }}
+                    </button>
                 </div>
             </div>
 
-            <div class="tab-content" id="conversations" style="display: none;">
-                <h2>{{ _('Conversaciones') }}</h2>
-                <div class="conversation-queue-container">
-                    <h4>Cola de Atención</h4>
-                    <div class="conversation-queue">
-                        <div class="conversation-card active" data-conversation-id="chat-1">
-                            <h5><span class="status-icon">👤</span> Ferretería El Tornillo Feliz</h5>
-                            <p class="last-message">"Perfecto, ¿puedo hablar con un asesor para cerrar la compra?"</p>
-                            <small class="waiting-time urgent">Esperando: 45 min</small>
-                        </div>
-                        <div class="conversation-card" data-conversation-id="chat-2">
-                            <h5><span class="status-icon">⭐️</span> Restaurante Luigi's</h5>
-                            <p class="last-message">"Me interesa mucho, ¿cuál es el costo del plan profesional?"</p>
-                            <small class="waiting-time">Esperando: 8 min</small>
-                        </div>
-                        <div class="conversation-card" data-conversation-id="chat-3">
-                            <h5><span class="status-icon">🤖</span> Spas de Lujo S.A.</h5>
-                            <p class="last-message">"Gracias por la información."</p>
-                            <small class="waiting-time">Respondido por IA</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="chat-display-area">
-                    <div id="chat-1" class="chat-content-panel">
-                        <div class="chat-header-display"><h4>Ferretería El Tornillo Feliz</h4></div>
-                        <div class="chat-messages-display"><p class="msg-assistant">Hola, gracias por contactar...</p><p class="msg-user">¿Tienen tornillos de anclaje?</p><p class="msg-assistant">Sí, es nuestra especialidad...</p><p class="msg-user">Perfecto, ¿puedo hablar con un asesor para cerrar la compra?</p></div>
-                        <div class="chat-input-area-display">
-                            <button class="take-control-btn">Tomar Control y Responder</button>
-                        </div>
-                    </div>
-                    <div id="chat-2" class="chat-content-panel">
-                        <div class="chat-header-display"><h4>Restaurante Luigi's</h4></div>
-                        <div class="chat-messages-display"><p class="msg-assistant">Hola Luigi's, vi sus reseñas...</p><p class="msg-user">Me interesa mucho, ¿cuál es el costo del plan profesional?</p></div>
-                        <div class="chat-input-area-display">
-                             <button class="take-control-btn">Tomar Control y Responder</button>
-                        </div>
-                    </div>
-                     <div id="chat-3" class="chat-content-panel">
-                        <div class="chat-header-display"><h4>Spas de Lujo S.A.</h4></div>
-                        <div class="chat-messages-display"><p class="msg-assistant">Nuestro plan profesional es ideal...</p><p class="msg-user">Gracias por la información.</p></div>
-                        <div class="chat-input-area-display">
-                             <input type="text" placeholder="Conversación manejada por IA" disabled>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+            <!-- FOTO 8B: FACTURACIÓN -->
             <div class="tab-content" id="billing" style="display: none;">
-                <h2>{{ _('Mi Saldo y Facturación') }}</h2>
-                <p>Saldo Actual: <strong>$0.00</strong></p>
-                <button class="cta-button btn-blue-3d">{{ _('+ Recargar Saldo') }}</button>
+                <div class="billing-box">
+                    <div class="billing-title">Mi Saldo y Facturación</div>
+                    <p>Saldo Actual: <strong style="font-size:1.5em; color: #333;">$0.00</strong></p>
+                    <button class="billing-btn-large">+ Recargar Saldo</button>
+                </div>
             </div>
-            
+
+            <!-- FOTO 10: SUGERENCIAS -->
             <div class="tab-content" id="suggestions" style="display: none;">
-                 <h2>Tú eres el Arquitecto de Nuestro Futuro</h2>
-                 <p>Tu voz es la brújula que guía nuestra innovación. ¿Qué funcionalidad revolucionaría tu trabajo?</p>
-                 <textarea placeholder="Describe aquí esa función increíble..."></textarea>
-                 <button class="cta-button btn-blue-3d">Enviar mi Sugerencia</button>
+                <div class="suggestions-box">
+                    <h3>Sugerencias</h3>
+                    <p>Aquí verás recomendaciones de la IA para mejorar tus campañas.</p>
+                </div>
             </div>
+
+            <div class="tab-content" id="prospect-flow" style="display: none;"><h2>Flujo</h2></div>
+            <div class="tab-content" id="conversations" style="display: none;"><h2>Conversaciones</h2></div>
         </div>
     </div>
-  
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="{{ url_for('static', filename='client_script.js') }}"></script>
 </body>

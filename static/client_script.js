@@ -1,182 +1,267 @@
-// --- CONFIGURACIÓN DE SUPABASE ---
-const SUPABASE_URL = 'https://fxduwnictssgxqndokly.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZHV3bmljdHNzZ3hxbmRva2x5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMzc3NDgsImV4cCI6MjA3NzYxMzc0OH0.1uqbiNroOCvAsn08Ps7JZpXV9K-rUyLfukOL5w4X_eg';
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log("⚡ AutoNeura Frontend 2.0 Cargado");
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const tabs = document.querySelectorAll('.tab-button');
+    const contents = document.querySelectorAll('.tab-content');
 
-// --- FUNCIÓN PRINCIPAL DE ARRANQUE ---
-const main = () => {
+    function switchTab(tabId) {
+        contents.forEach(content => content.style.display = 'none');
+        tabs.forEach(tab => tab.classList.remove('active'));
 
-    // --- MÓDULO 2: MANEJO DE PESTAÑAS ---
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
-    if (tabButtons.length > 0 && tabContents.length > 0) {
-        const switchTab = (activeButton) => {
-            if (!activeButton) return;
-            const tabId = activeButton.getAttribute('data-tab');
-            const activeTabContent = document.getElementById(tabId);
-            tabContents.forEach(content => content.style.display = 'none');
-            if (activeTabContent) activeTabContent.style.display = 'block';
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            activeButton.classList.add('active');
-        };
-        tabButtons.forEach(button => {
-            button.addEventListener('click', () => switchTab(button));
+        const selectedContent = document.getElementById(tabId);
+        if (selectedContent) selectedContent.style.display = 'block';
+
+        const selectedTab = document.querySelector(`[data-tab="${tabId}"]`);
+        if (selectedTab) selectedTab.classList.add('active');
+    }
+
+    tabs.forEach(button => {
+        button.addEventListener('click', () => {
+            const target = button.getAttribute('data-tab');
+            switchTab(target);
+            if (target === 'my-campaigns') cargarCampanas(); 
         });
-        const initialActiveButton = document.querySelector('.tab-button.active');
-        if (initialActiveButton) {
-            switchTab(initialActiveButton);
+    });
+
+    // =========================================================
+    // LÓGICA DE SELECCIÓN DE PLAN (ACTUALIZADA)
+    // =========================================================
+    // Recibe: elemento HTML, nombre, precio, Y CANTIDAD DE PROSPECTOS
+    window.selectPlan = function(element, planName, price, prospects) {
+        // Remover clase selected
+        document.querySelectorAll('#create-plans-container .plan-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        // Agregar selected
+        element.classList.add('selected');
+        
+        // Actualizar Resumen (FOTO 7B)
+        document.getElementById('selected-plan').innerText = planName.charAt(0).toUpperCase() + planName.slice(1);
+        document.getElementById('selected-prospects').innerText = prospects; // NUEVO
+        document.getElementById('total-cost').innerText = `$${price}.00`;
+        document.getElementById('recharge-amount').innerText = `$${price}.00`;
+    };
+
+    // ... (El resto del JS de cargar campañas y gestión se mantiene igual que antes) ...
+    // Para ahorrarte espacio, no lo repito porque lo importante era la función selectPlan.
+    // PEGA AQUÍ EL RESTO DEL JS QUE YA TENÍAS, es compatible.
+    
+    // (Incluyendo cargarCampanas, abrirPestanaGemela, btnUpdate, btnLanzar)
+    // Asegúrate de que cargarCampanas esté aquí abajo.
+    
+    let campañasCache = [];
+
+    async function cargarCampanas() {
+        const tbody = document.getElementById('campaigns-table-body');
+        if(!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Cargando...</td></tr>';
+
+        try {
+            const res = await fetch('/api/mis-campanas');
+            const data = await res.json();
+            campañasCache = data;
+
+            let totalProspectos = 0;
+            let totalLeads = 0;
+
+            tbody.innerHTML = ''; 
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No tienes campañas activas.</td></tr>';
+            } else {
+                data.forEach(camp => {
+                    totalProspectos += (camp.prospects_count || 0);
+                    totalLeads += (camp.leads_count || 0);
+
+                    const tr = document.createElement('tr');
+                    const estadoHtml = camp.status === 'active' 
+                        ? '<span style="color:green; font-weight:bold;">● Activa</span>' 
+                        : '<span style="color:red;">● Pausada</span>';
+
+                    tr.innerHTML = `
+                        <td><strong>${camp.name}</strong></td>
+                        <td>${camp.created_at || '-'}</td>
+                        <td>${estadoHtml}</td>
+                        <td>${camp.prospects_count || 0}</td>
+                        <td>
+                            <button class="cta-button btn-gestionar" 
+                                data-id="${camp.id}" 
+                                data-pros="${camp.prospects_count || 0}"
+                                data-leads="${camp.leads_count || 0}"
+                                style="padding: 5px 15px; font-size: 12px; background-color: #007bff; width: auto; box-shadow: 0 3px 0 #0056b3;">
+                                👁️ Ver
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            actualizarKPIs(totalProspectos, totalLeads);
+
+            document.querySelectorAll('.btn-gestionar').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    const p = parseInt(e.target.getAttribute('data-pros'));
+                    const l = parseInt(e.target.getAttribute('data-leads'));
+                    abrirPestanaGemela(id, p, l);
+                });
+            });
+
+        } catch (error) {
+            console.error("Error cargando campañas:", error);
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Error de conexión.</td></tr>';
         }
     }
 
-    // --- MÓDULO 3: MANEJO DEL CHAT DE LA IA ---
-    const chatForm = document.getElementById('chat-form');
-    if (chatForm) {
-        const userInput = document.getElementById('user-input');
-        const chatMessages = document.getElementById('chat-messages');
-        const appendMessage = (message, type) => {
-            if (!chatMessages) return;
-            const messageElement = document.createElement('p');
-            messageElement.classList.add(type === 'user' ? 'msg-user' : 'msg-assistant');
-            messageElement.innerText = message;
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        };
-        chatForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const userMessage = userInput.value.trim();
-            if (!userMessage) return;
-            appendMessage(userMessage, 'user');
-            userInput.value = '';
+    function actualizarKPIs(prospectos, leads) {
+        document.getElementById('kpi-total').innerText = prospectos;
+        document.getElementById('kpi-leads').innerText = leads;
+        const tasa = prospectos > 0 ? ((leads / prospectos) * 100).toFixed(1) : 0;
+        document.getElementById('kpi-rate').innerText = `${tasa}%`;
+    }
+
+    async function abrirPestanaGemela(id, prospectosLocales, leadsLocales) {
+        actualizarKPIs(prospectosLocales, leadsLocales);
+        try {
+            const res = await fetch(`/api/campana/${id}`);
+            if (!res.ok) throw new Error("Fallo API");
+            const data = await res.json();
+
+            document.getElementById('manage-campaign-title').innerText = data.campaign_name;
+            document.getElementById('edit_campaign_id').value = data.id;
+
+            setVal('edit_nombre_campana', data.campaign_name);
+            setVal('edit_que_vendes', data.product_description);
+            setVal('edit_a_quien_va_dirigido', data.target_audience);
+            setVal('edit_idiomas_busqueda', data.languages);
+            setVal('edit_ticket_producto', data.ticket_price);
+            setVal('edit_competidores_principales', data.competitors);
+            setVal('edit_dolores_pain_points', data.pain_points_defined);
+            setVal('edit_red_flags', data.red_flags);
+            setVal('edit_ai_constitution', data.adn_corporativo || ""); 
+            setVal('edit_ai_blackboard', data.pizarron_contexto || "");
+            setVal('edit_numero_whatsapp', data.whatsapp_number);
+            setVal('edit_enlace_venta', data.sales_link);
+            setSelect('edit_objetivo_cta', data.cta_goal);
+            setSelect('edit_tono_marca', data.tone_voice);
+
+            document.querySelectorAll('.plan-card').forEach(p => p.classList.remove('plan-active-readonly'));
+            let limit = data.daily_prospects_limit || 4;
+            if (limit <= 4) document.getElementById('edit_plan_arrancador').classList.add('plan-active-readonly');
+            else if (limit <= 15) document.getElementById('edit_plan_profesional').classList.add('plan-active-readonly');
+            else document.getElementById('edit_plan_dominador').classList.add('plan-active-readonly');
+
+            switchTab('manage-campaign');
+
+        } catch (e) {
+            alert("No se pudo cargar: " + e.message);
+        }
+    }
+
+    function setVal(id, val) { const el = document.getElementById(id); if(el) el.value = val || ''; }
+    function setSelect(id, val) { const el = document.getElementById(id); if(el && val) el.value = val; }
+
+    const btnUpdate = document.getElementById('btn-update-brain');
+    if (btnUpdate) {
+        btnUpdate.addEventListener('click', async () => {
+            const id = document.getElementById('edit_campaign_id').value;
+            if(!id) return;
+
+            const payload = {
+                id: id,
+                campaign_name: document.getElementById('edit_nombre_campana').value,
+                product_description: document.getElementById('edit_que_vendes').value,
+                target_audience: document.getElementById('edit_a_quien_va_dirigido').value,
+                languages: document.getElementById('edit_idiomas_busqueda').value,
+                ticket_price: document.getElementById('edit_ticket_producto').value,
+                cta_goal: document.getElementById('edit_objetivo_cta').value,
+                competitors: document.getElementById('edit_competidores_principales').value,
+                pain_points_defined: document.getElementById('edit_dolores_pain_points').value,
+                red_flags: document.getElementById('edit_red_flags').value,
+                tone_voice: document.getElementById('edit_tono_marca').value,
+                adn_corporativo: document.getElementById('edit_ai_constitution').value,
+                pizarron_contexto: document.getElementById('edit_ai_blackboard').value,
+                whatsapp_number: document.getElementById('edit_numero_whatsapp').value,
+                sales_link: document.getElementById('edit_enlace_venta').value
+            };
+
+            btnUpdate.innerText = "Guardando...";
+            btnUpdate.disabled = true;
+
             try {
-                const response = await fetch('/chat', {
+                const res = await fetch('/api/actualizar-campana', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: userMessage })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
                 });
-                if (!response.ok) throw new Error('Server response not ok');
-                const data = await response.json();
-                appendMessage(data.response, 'assistant');
-            } catch (error) {
-                console.error('Error en el chat:', error);
-                appendMessage('Lo siento, estoy teniendo problemas de conexión.', 'assistant');
-            }
-        });
-    }
-    
-    // --- MÓDULO 4: FORMULARIO DE CAMPAÑA ---
-    const createCampaignTab = document.getElementById('create-campaign');
-    if (createCampaignTab) {
-        const planCards = createCampaignTab.querySelectorAll('.plan-card');
-        const prospectsInput = createCampaignTab.querySelector('#prospects-per-day');
-        const selectedPlanElement = createCampaignTab.querySelector('#selected-plan');
-        const dailyProspectsElement = createCampaignTab.querySelector('#daily-prospects');
-        const totalCostElement = createCampaignTab.querySelector('#total-cost');
-        const summaryBox = createCampaignTab.querySelector('#summary-box');
-        const launchButton = createCampaignTab.querySelector('#lancam');
-        const phoneInput = createCampaignTab.querySelector("#numero_whatsapp");
-        const currentBalanceElement = createCampaignTab.querySelector('#current-balance');
-        const rechargeLine = createCampaignTab.querySelector('#recharge-line');
-        const rechargeAmountElement = createCampaignTab.querySelector('#recharge-amount');
-        const remainingLine = createCampaignTab.querySelector('#remaining-line');
-        const remainingBalanceElement = createCampaignTab.querySelector('#remaining-balance');
 
-        if (planCards.length > 0 && prospectsInput) {
-            const userBalance = 0.00;
-            if(currentBalanceElement) currentBalanceElement.textContent = `$${userBalance.toFixed(2)}`;
-            const plans = {
-                arrancador: { name: 'El Arrancador', baseProspects: 4, baseCost: 149, extraCost: 37.25, limit: 14 },
-                profesional: { name: 'El Profesional', baseProspects: 15, baseCost: 399, extraCost: 26.60, limit: 49 },
-                dominador: { name: 'El Dominador', baseProspects: 50, baseCost: 999, extraCost: 20.00, limit: Infinity }
-            };
-            const handleFormUpdate = () => {
-                const prospectsCount = parseInt(prospectsInput.value, 10);
-                if (isNaN(prospectsCount) || prospectsCount < 4) return;
-                let activePlanKey;
-                if (prospectsCount <= plans.arrancador.limit) { activePlanKey = 'arrancador'; } 
-                else if (prospectsCount <= plans.profesional.limit) { activePlanKey = 'profesional'; } 
-                else { activePlanKey = 'dominador'; }
-                const currentPlan = plans[activePlanKey];
-                planCards.forEach(card => card.classList.remove('selected'));
-                const cardToSelect = createCampaignTab.querySelector(`.plan-card[data-plan="${activePlanKey}"]`);
-                if (cardToSelect) cardToSelect.classList.add('selected');
-                const extraProspects = prospectsCount - currentPlan.baseProspects;
-                const totalCost = currentPlan.baseCost + (extraProspects * currentPlan.extraCost);
-                const planName = (prospectsCount === currentPlan.baseProspects) ? currentPlan.name : 'Personalizado';
-                if(selectedPlanElement) selectedPlanElement.textContent = planName;
-                if(dailyProspectsElement) dailyProspectsElement.textContent = prospectsCount;
-                if(totalCostElement) totalCostElement.textContent = `$${totalCost.toFixed(2)}`;
-                if (launchButton && summaryBox && rechargeLine && remainingLine) {
-                    if (userBalance >= totalCost) {
-                        const remaining = userBalance - totalCost;
-                        if(remainingBalanceElement) remainingBalanceElement.textContent = `$${remaining.toFixed(2)}`;
-                        rechargeLine.style.display = 'none';
-                        remainingLine.style.display = 'flex';
-                        summaryBox.style.borderColor = '#28a745';
-                        launchButton.disabled = false;
-                    } else {
-                        const needed = totalCost - userBalance;
-                        if(rechargeAmountElement) rechargeAmountElement.textContent = `$${needed.toFixed(2)}`;
-                        rechargeLine.style.display = 'flex';
-                        remainingLine.style.display = 'none';
-                        summaryBox.style.borderColor = '#ffc107';
-                        launchButton.disabled = true;
-                    }
+                if(res.ok) {
+                    alert("✅ Cambios Guardados.");
+                } else {
+                    alert("❌ Error al guardar.");
                 }
-            };
-            planCards.forEach(card => {
-                card.addEventListener('click', () => {
-                    const planKey = card.getAttribute('data-plan');
-                    const plan = plans[planKey];
-                    if (plan) {
-                        prospectsInput.value = plan.baseProspects;
-                        handleFormUpdate();
-                    }
-                });
-            });
-            prospectsInput.addEventListener('input', handleFormUpdate);
-            const defaultPlanCard = createCampaignTab.querySelector('.plan-card[data-plan="arrancador"]');
-            if (defaultPlanCard) { defaultPlanCard.click(); }
-            if (phoneInput) {
-                window.intlTelInput(phoneInput, { utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
+            } catch (e) {
+                alert("Error de red.");
+            } finally {
+                btnUpdate.innerText = "💾 Guardar Cambios";
+                btnUpdate.disabled = false;
             }
-        }
-    }
-    
-    // --- MÓDULO 5: LOGOUT ---
-    const logoutButton = document.getElementById('logout-btn');
-    if (logoutButton) {
-        logoutButton.addEventListener('click', async () => {
-            await supabase.auth.signOut();
-            window.location.href = '/login';
         });
     }
 
-    // --- MÓDULO 6: PESTAÑA "CONVERSACIONES" ---
-    const conversationsTab = document.getElementById('conversations');
-    if (conversationsTab) {
-        const conversationCards = conversationsTab.querySelectorAll('.conversation-card');
-        const chatContentPanels = conversationsTab.querySelectorAll('.chat-content-panel');
-        if (conversationCards.length > 0 && chatContentPanels.length > 0) {
-            conversationCards.forEach(card => {
-                card.addEventListener('click', () => {
-                    conversationCards.forEach(c => c.classList.remove('active'));
-                    chatContentPanels.forEach(p => p.style.display = 'none');
-                    card.classList.add('active');
-                    const conversationId = card.getAttribute('data-conversation-id');
-                    const chatPanelToShow = conversationsTab.querySelector(`#${conversationId}`);
-                    if (chatPanelToShow) {
-                        chatPanelToShow.style.display = 'flex';
-                    }
-                });
-            });
-            const firstCard = conversationsTab.querySelector('.conversation-card');
-            if (firstCard) {
-                firstCard.click();
-            }
-        }
-    }
-};
+    const btnLanzar = document.getElementById('lancam');
+    if (btnLanzar) {
+        btnLanzar.addEventListener('click', async () => {
+            const selectedPlanCard = document.querySelector('.plan-card.selected');
+            if(!selectedPlanCard) { alert("Selecciona un plan."); return; }
+            
+            const payload = {
+                nombre: document.getElementById('nombre_campana').value,
+                que_vende: document.getElementById('que_vendes').value,
+                a_quien: document.getElementById('a_quien_va_dirigido').value,
+                idiomas: document.getElementById('idiomas_busqueda').value,
+                ubicacion: document.getElementById('ubicacion_geografica').value,
+                ticket_producto: document.getElementById('ticket_producto').value,
+                objetivo_cta: document.getElementById('objetivo_cta').value,
+                competidores_principales: document.getElementById('competidores_principales').value,
+                dolores_pain_points: document.getElementById('dolores_pain_points').value,
+                red_flags: document.getElementById('red_flags').value,
+                tono_marca: document.getElementById('tono_marca').value,
+                ai_constitution: document.getElementById('ai_constitution').value,
+                ai_blackboard: document.getElementById('ai_blackboard').value,
+                tipo_producto: document.querySelector('input[name="tipo_producto"]:checked').value,
+                numero_whatsapp: document.getElementById('numero_whatsapp').value,
+                enlace_venta: document.getElementById('enlace_venta').value
+            };
 
-// Se ejecuta el código del dashboard directamente, sin seguridad.
-main();
+            btnLanzar.innerText = "Lanzando...";
+            btnLanzar.disabled = true;
+
+            try {
+                const res = await fetch('/api/crear-campana', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+
+                if(data.success) {
+                    alert("🚀 ¡Campaña Lanzada!");
+                    document.querySelector('[data-tab="my-campaigns"]').click();
+                } else {
+                    alert("Error: " + (data.error || "Desconocido"));
+                }
+            } catch (e) {
+                alert("Error de conexión.");
+            } finally {
+                btnLanzar.innerText = "Lanzar Campaña";
+                btnLanzar.disabled = false;
+            }
+        });
+    }
+
+    cargarCampanas();
+});

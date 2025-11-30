@@ -43,13 +43,12 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 # Configuración del Cerebro Estratégico
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    # MODELO RÁPIDO PARA EL ORQUESTADOR
-    MODELO_ESTRATEGICO_ID = 'models/gemini-2.0-flash'
-    modelo_estrategico = genai.GenerativeModel(MODELO_ESTRATEGICO_ID)
+    # USO MODELO LITE PARA EVITAR ERROR 429 Y AGUANTAR LA CARGA
+    MODELO_ESTRATEGICO_ID = 'models/gemini-2.0-flash-lite-preview-02-05'
     logging.info(f"🧠 Cerebro conectado usando: {MODELO_ESTRATEGICO_ID}")
 else:
     logging.warning("⚠️ CEREBRO DESCONECTADO: No hay API Key de Google. El Orquestador será menos inteligente.")
-    modelo_estrategico = None
+    MODELO_ESTRATEGICO_ID = None
 
 class OrquestadorSupremo:
     def __init__(self):
@@ -115,38 +114,83 @@ class OrquestadorSupremo:
             conn.close()
 
     # ==============================================================================
-    # 🧠 MÓDULO 2: ESTRATEGIA DE MERCADO
+    # 🧠 MÓDULO 2: ESTRATEGIA DE MERCADO (AHORA CONECTADO AL ARSENAL)
     # ==============================================================================
 
+    def obtener_arsenal_disponible(self):
+        """
+        Consulta la Base de Datos para ver qué bots tenemos realmente disponibles.
+        Devuelve una lista de plataformas activas.
+        """
+        conn = self.conectar_db()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT DISTINCT platform FROM bot_arsenal WHERE is_active = TRUE")
+            rows = cur.fetchall()
+            # Si hay datos, devolvemos lista, sino un default
+            plataformas = [r[0] for r in rows] if rows else ["Google Maps"]
+            return plataformas
+        except Exception as e:
+            logging.error(f"⚠️ Error leyendo Arsenal: {e}")
+            return ["Google Maps"] # Fallback seguro
+        finally:
+            cur.close()
+            conn.close()
+
     def planificar_estrategia_caza(self, descripcion_producto, audiencia_objetivo, tipo_producto):
-        """Define si buscar en Maps, TikTok o Instagram y qué palabra clave usar."""
-        opciones = ["Google Maps"]
-        if "intangible" in str(tipo_producto).lower() or "software" in str(descripcion_producto).lower():
-            opciones.extend(["TikTok", "Instagram"])
+        """
+        Usa IA para decidir la MEJOR plataforma del arsenal disponible y la Query inicial.
+        """
+        # 1. Obtener herramientas reales disponibles
+        plataformas_disponibles = self.obtener_arsenal_disponible()
         
-        platform_default = random.choice(opciones)
+        # Valores por defecto por si la IA falla
+        platform_default = plataformas_disponibles[0] if plataformas_disponibles else "Google Maps"
         query_default = audiencia_objetivo
 
-        if not modelo_estrategico:
+        if not MODELO_ESTRATEGICO_ID:
             return query_default, platform_default
 
-        prompt = f"""
-        Eres un Estratega de Marketing B2B.
-        PRODUCTO: {descripcion_producto}
-        AUDIENCIA DESEADA: {audiencia_objetivo}
-        TIPO: {tipo_producto}
-        
-        TU MISIÓN:
-        1. Elige la mejor plataforma para este ciclo: 'Google Maps', 'TikTok' o 'Instagram'.
-        2. Define la 'Query' de búsqueda optimizada.
-        
-        Responde SOLO con un JSON: {{"query": "...", "platform": "..."}}
-        """
         try:
+            modelo_estrategico = genai.GenerativeModel(MODELO_ESTRATEGICO_ID)
+            
+            prompt = f"""
+            Eres el Director de Estrategia de una agencia de Lead Generation.
+            
+            TUS HERRAMIENTAS (ARSENAL DISPONIBLE):
+            {json.dumps(plataformas_disponibles)}
+            
+            EL CLIENTE:
+            - Producto: {descripcion_producto}
+            - Audiencia: {audiencia_objetivo}
+            - Tipo: {tipo_producto}
+            
+            TU MISIÓN:
+            1. Selecciona de la lista de herramientas la MEJOR plataforma para encontrar a estos clientes.
+            2. Redacta una búsqueda (Query) general para esa plataforma.
+            
+            Reglas:
+            - Si es B2B local o servicios físicos -> Google Maps suele ser mejor.
+            - Si es Software, Coaching, Moda o Digital -> Instagram/TikTok pueden ser mejores (si están en la lista).
+            
+            Responde SOLO con un JSON válido: {{"query": "...", "platform": "..."}}
+            """
+            
             res = modelo_estrategico.generate_content(prompt)
-            data = json.loads(res.text.replace("```json", "").replace("```", "").strip())
-            return data.get("query", query_default), data.get("platform", platform_default)
-        except:
+            texto_limpio = res.text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(texto_limpio)
+            
+            platform_elegida = data.get("platform", platform_default)
+            
+            # Validación de seguridad: Si la IA alucina una plataforma que no tenemos, usamos default
+            if platform_elegida not in plataformas_disponibles:
+                platform_elegida = platform_default
+
+            logging.info(f"💡 ESTRATEGIA IA: Usar {platform_elegida} para buscar '{data.get('query')}'")
+            return data.get("query", query_default), platform_elegida
+
+        except Exception as e:
+            logging.error(f"⚠️ Fallo en estrategia IA (Usando default): {e}")
             return query_default, platform_default
 
     # ==============================================================================
@@ -204,26 +248,30 @@ class OrquestadorSupremo:
                 
                 cazados_hoy = cur.fetchone()[0]
                 
-                logging.info(f"📊 Estado '{nombre}': {cazados_hoy} cazados hoy. Activando trabajadores...")
+                # Si falta cazar, activamos al equipo
+                if cazados_hoy < limite_diario:
+                    logging.info(f"📊 {nombre}: Faltan prospectos ({cazados_hoy}/{limite_diario}). Planificando...")
 
-                # 1. PENSAR ESTRATEGIA (IA)
-                query_optimizada, plataforma = self.planificar_estrategia_caza(prod, audiencia, tipo_prod)
-                
-                # 2. LANZAR CAZADOR (Thread)
-                t_caza = threading.Thread(
-                    target=self.ejecutar_trabajador_cazador_thread,
-                    args=(camp_id, query_optimizada, ubicacion, plataforma, limite_diario)
-                )
-                t_caza.start()
+                    # 1. PENSAR ESTRATEGIA (IA LEE LA DB DE BOTS)
+                    query_optimizada, plataforma = self.planificar_estrategia_caza(prod, audiencia, tipo_prod)
+                    
+                    # 2. LANZAR CAZADOR (Thread)
+                    t_caza = threading.Thread(
+                        target=self.ejecutar_trabajador_cazador_thread,
+                        args=(camp_id, query_optimizada, ubicacion, plataforma, limite_diario)
+                    )
+                    t_caza.start()
 
-                # 3. LANZAR ESPÍA (Thread)
-                t_espia = threading.Thread(
-                    target=self.ejecutar_trabajador_espia_thread,
-                    args=(camp_id, limite_diario)
-                )
-                t_espia.start()
-                
-                time.sleep(2)
+                    # 3. LANZAR ESPÍA (Thread) - Opcional según lógica, aquí lo dejamos activo para apoyar
+                    t_espia = threading.Thread(
+                        target=self.ejecutar_trabajador_espia_thread,
+                        args=(camp_id, limite_diario)
+                    )
+                    t_espia.start()
+                    
+                    time.sleep(2) # Evitar golpe de arranque simultáneo
+                else:
+                    logging.info(f"✅ {nombre}: Meta diaria cumplida ({cazados_hoy}/{limite_diario}).")
 
             # C. EL NUTRIDOR
             logging.info("♟️ Despertando al Nutridor...")
@@ -282,7 +330,7 @@ class OrquestadorSupremo:
     # ==============================================================================
 
     def iniciar_turno(self):
-        logging.info(">>> 🤖 ORQUESTADOR SUPREMO (CON FRENO ANTI-429 Y PRESUPUESTO) 🤖 <<<")
+        logging.info(">>> 🤖 ORQUESTADOR SUPREMO (CONECTADO A ARSENAL & IA LITE) 🤖 <<<")
         
         # --- HILOS PERMANENTES (DAEMONS) ---
         logging.info("🚀 Iniciando Hilo Permanente: TRABAJADOR ANALISTA")
