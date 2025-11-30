@@ -57,14 +57,13 @@
                 </table>
             </div>
 
-            <!-- 2. GESTIONAR CAMPAÑA (LA QUE FALTABA) -->
+            <!-- 2. GESTIONAR CAMPAÑA (SIN RESUMEN DE PAGO) -->
             <div class="tab-content" id="manage-campaign" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
                     <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
                 </div>
                 <input type="hidden" id="edit_campaign_id">
 
-                <!-- Reutilizamos tu estructura de formulario para editar -->
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
                     <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
@@ -105,6 +104,7 @@
                     <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
+                <!-- BOTÓN GUARDAR (SIN RESUMEN) -->
                 <div id="action-buttons-container" style="margin-top: 30px;">
                     <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); box-shadow: 0 5px 0 #0056b3;">
                         💾 {{ _('Guardar Cambios') }}
@@ -112,7 +112,7 @@
                 </div>
             </div>
 
-            <!-- 3. CREAR CAMPAÑA -->
+            <!-- 3. CREAR CAMPAÑA (SIN RESUMEN DE PAGO) -->
             <div class="tab-content" id="create-campaign" style="display: none;">
                 <h2>{{ _('Configurar Nueva Campaña') }}</h2>
                 <div class="form-section">
@@ -161,28 +161,64 @@
                     <input type="text" id="enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
-                <!-- RESUMEN FINAL CORREGIDO (FONDO TRANSPARENTE, BORDE AMARILLO) -->
-                <div id="summary-box" class="summary-box">
-                    <h4>{{ _('Resumen Final') }}</h4>
-                    <p>{{ _('Prospectos por día:') }} <strong id="summary-prospects">4</strong></p>
-                    <p>{{ _('Tipo de Estrategia:') }} <strong id="summary-strategy">Personalizada</strong></p>
-                    <div class="summary-divider"></div>
-                    <p>{{ _('Listo para Lanzar:') }} <strong>SÍ</strong></p>
-                </div>
-
+                <!-- BOTÓN LANZAR (SIN RESUMEN) -->
                 <div id="action-buttons-container" style="margin-top: 20px; text-align: center;">
                     <button id="lancam" class="cta-button" style="width: 50%;">{{ _('Lanzar Campaña') }}</button>
                 </div>
             </div>
 
+            <!-- 4. FLUJO -->
             <div class="tab-content" id="prospect-flow" style="display: none;">
-                <h2>{{ _('Flujo de Prospectos') }}</h2>
+                <h2>{{ _('Flujo de Prospectos en Tiempo Real') }}</h2>
+                <div class="flow-container">
+                    <div class="flow-column"><h4>🕵️‍♂️ Cazados</h4><div id="col-cazados"></div></div>
+                    <div class="flow-column"><h4>🔬 En Análisis</h4><div id="col-analisis"></div></div>
+                    <div class="flow-column"><h4>✍️ Persuadidos</h4><div id="col-persuadidos"></div></div>
+                    <div class="flow-column"><h4>♟️ En Nutrición</h4><div id="col-nutricion"></div></div>
+                </div>
             </div>
+
+            <!-- 5. CONVERSACIONES (ESTRUCTURA DE CHAT) -->
             <div class="tab-content" id="conversations" style="display: none;">
-                <h2>{{ _('Conversaciones') }}</h2>
+                <h2>{{ _('Conversaciones Activas (Nido)') }}</h2>
+                
+                <!-- Contenedor del Chat Panel -->
+                <div style="display: flex; gap: 20px; height: 600px; margin-top: 20px;">
+                    <!-- Lista de Chats (Izquierda) -->
+                    <div style="width: 300px; background: white; border: 1px solid #ddd; border-radius: 8px; overflow-y: auto;">
+                        <div style="padding: 15px; border-bottom: 1px solid #eee; background: #f8f9fa; font-weight: bold;">Cola de Atención</div>
+                        <!-- Ejemplo de chats (se llenará con JS luego) -->
+                        <div class="conversation-card active" style="padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; background: #e9ecef;">
+                            <div style="font-weight: bold;">Cliente Demo</div>
+                            <div style="font-size: 12px; color: #666;">Hola, me interesa...</div>
+                        </div>
+                        <div class="conversation-card" style="padding: 15px; border-bottom: 1px solid #eee; cursor: pointer;">
+                            <div style="font-weight: bold;">Prospecto 2</div>
+                            <div style="font-size: 12px; color: #666;">¿Precio?</div>
+                        </div>
+                    </div>
+
+                    <!-- Área de Chat (Derecha) -->
+                    <div class="chat-display-area" style="flex-grow: 1; background: white; border: 1px solid #ddd; border-radius: 8px; display: flex; flex-direction: column;">
+                        <div class="chat-header-display" style="padding: 15px; border-bottom: 1px solid #ddd; background: #f8f9fa; font-weight: bold;">
+                            Chat con: Cliente Demo
+                        </div>
+                        <div class="chat-messages-display" style="flex-grow: 1; padding: 20px; overflow-y: auto;">
+                            <!-- Mensajes de ejemplo -->
+                            <div class="msg-assistant" style="margin-bottom: 10px; max-width: 70%;">Hola, ¿en qué puedo ayudarte?</div>
+                            <div class="msg-user" style="margin-bottom: 10px; max-width: 70%; margin-left: auto;">Quisiera saber el precio.</div>
+                        </div>
+                        <div class="chat-input-area-display" style="padding: 15px; border-top: 1px solid #ddd; display: flex; gap: 10px;">
+                            <input type="text" placeholder="Escribe una respuesta manual..." style="flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <button style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Enviar</button>
+                        </div>
+                    </div>
+                </div>
             </div>
+
         </div>
     </div>
+  
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="{{ url_for('static', filename='mis_clientes.js') }}"></script>
 </body>
