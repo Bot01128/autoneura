@@ -1,22 +1,86 @@
-body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; height: 100%; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 40px; border-bottom: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.recharge-btn { background: #007bff; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: 600; border: none; }
-.container { display: flex; height: calc(100% - 61px); }
-.left-panel { flex: 0 0 450px; background-color: #ffffff; padding: 30px; display: flex; flex-direction: column; border-right: 1px solid #ddd; }
-.right-panel { flex-grow: 1; background-color: #f8f9fa; padding: 40px; overflow-y: auto; }
-
-/* ESTILOS DE FORMULARIO */
-select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
-    width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: white; font-size: 14px; font-family: inherit; box-sizing: border-box;
+/* =========================================
+   ESTILOS GENERALES Y ESTRUCTURA
+   ========================================= */
+body, html { 
+    margin: 0; 
+    padding: 0; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    background-color: #f0f2f5; 
+    height: 100%; 
 }
 
+.top-bar { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    background: white; 
+    padding: 10px 40px; 
+    border-bottom: 1px solid #ddd; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+}
+
+.recharge-btn { 
+    background: #007bff; 
+    color: white; 
+    padding: 8px 15px; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    font-weight: 600; 
+    border: none; 
+}
+
+.container { 
+    display: flex; 
+    height: calc(100% - 61px); 
+}
+
+.left-panel { 
+    flex: 0 0 450px; 
+    background-color: #ffffff; 
+    padding: 30px; 
+    display: flex; 
+    flex-direction: column; 
+    border-right: 1px solid #ddd; 
+}
+
+.right-panel { 
+    flex-grow: 1; 
+    background-color: #f8f9fa; 
+    padding: 40px; 
+    overflow-y: auto; 
+}
+
+/* =========================================
+   ESTILOS DE FORMULARIO (INPUTS)
+   ========================================= */
+select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
+    width: 100%; 
+    padding: 12px; 
+    margin-top: 5px; 
+    border: 1px solid #ccc; 
+    border-radius: 4px; 
+    background-color: white; 
+    font-size: 14px; 
+    font-family: inherit; 
+    box-sizing: border-box;
+}
+
+/* =========================================
+   CAJAS ESPECIALES (CEREBRO Y RESUMEN)
+   ========================================= */
 /* CAJA CEREBRO (AZUL) */
-.brain-box { background-color: #f8f9fa; padding: 20px; border-left: 5px solid #007bff; margin-top: 20px; border-radius: 5px; }
+.brain-box { 
+    background-color: #f8f9fa; 
+    padding: 20px; 
+    border-left: 5px solid #007bff; 
+    margin-top: 20px; 
+    border-radius: 5px; 
+}
 .brain-box h3 { color: #0056b3; margin-top: 0; }
 .help-text { font-size: 0.85em; color: #666; margin-bottom: 8px; font-style: italic; }
 .blackboard-field { border: 2px solid #28a745 !important; background-color: #f0fff4 !important; }
 
-/* --- CORRECCIÓN A: RESUMEN AMARILLO --- */
+/* RESUMEN AMARILLO */
 .summary-box {
     background-color: #fff3cd; /* AMARILLO CLARO */
     border: 1px solid #ffeeba;
@@ -29,7 +93,9 @@ select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
 .summary-box p { margin: 8px 0; font-size: 1em; display: flex; justify-content: space-between; }
 .summary-divider { border: 0; border-top: 1px solid #ffeeba; margin: 10px 0; }
 
-/* --- CORRECCIÓN A: BOTÓN VERDE GIGANTE --- */
+/* =========================================
+   BOTONES Y ACCIONES
+   ========================================= */
 .cta-button {
     width: 100%;
     background-color: #28a745; /* VERDE */
@@ -46,28 +112,91 @@ select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
 .cta-button:hover { background-color: #218838; }
 .cta-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
 
-/* --- CORRECCIÓN B: RADIO BUTTONS --- */
+/* RADIO BUTTONS */
 .radio-group { display: flex; gap: 20px; margin-top: 10px; }
 .radio-item { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 1em; }
 input[type="radio"] { transform: scale(1.3); cursor: pointer; width: auto; margin: 0; }
 
-/* PESTAÑAS */
+/* =========================================
+   NAVEGACIÓN (PESTAÑAS)
+   ========================================= */
 .tab-nav { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 30px; }
-.tab-nav button { background: none; border: none; padding: 15px 20px; cursor: pointer; font-size: 16px; color: #606770; border-bottom: 3px solid transparent; }
+.tab-nav button { 
+    background: none; 
+    border: none; 
+    padding: 15px 20px; 
+    cursor: pointer; 
+    font-size: 16px; 
+    color: #606770; 
+    border-bottom: 3px solid transparent; 
+}
 .tab-nav button.active { color: #007bff; border-bottom-color: #007bff; font-weight: 600; }
 
-/* TABLA */
+/* =========================================
+   DASHBOARD KPI CARDS (Faltaban en tu CSS anterior)
+   ========================================= */
+.kpi-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 25px;
+}
+.kpi-card {
+    flex: 1;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    text-align: center;
+    border: 1px solid #eee;
+}
+.kpi-title {
+    display: block;
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.kpi-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #333;
+}
+.rate-success { color: #28a745; }
+
+/* =========================================
+   TABLAS DE DATOS
+   ========================================= */
 .campaign-table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .campaign-table th, .campaign-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
 .campaign-table tbody tr:hover { background-color: #f1f1f1; cursor: pointer; }
 
-/* PLANES */
+/* =========================================
+   PLANES Y TARJETAS
+   ========================================= */
 .plans-container { display: flex; gap: 20px; margin-bottom: 20px; }
-.plan-card { flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; }
+.plan-card { flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: white; }
 .plan-card.selected { border-color: #007bff; background-color: #f0f7ff; transform: translateY(-3px); }
 .plan-card .price { font-size: 24px; font-weight: bold; margin: 10px 0; }
 
-/* CHAT */
+/* ESTILOS PARA MODO GESTIÓN (SOLO LECTURA) */
+.plan-disabled { 
+    opacity: 0.6; 
+    pointer-events: none; 
+    background-color: #e9ecef !important; 
+    border-color: #ced4da !important; 
+}
+.plan-active-readonly { 
+    opacity: 1 !important; 
+    border-color: #007bff !important; 
+    background-color: #f0f7ff !important; 
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.4); 
+    transform: scale(1.02);
+}
+
+/* =========================================
+   CHAT DEL ASISTENTE
+   ========================================= */
 .chat-window { flex-grow: 1; border: 1px solid #ddd; border-radius: 8px; margin-top: 20px; display: flex; flex-direction: column; overflow: hidden; padding: 10px; }
 .chat-messages { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .msg-user { background-color: #007bff; color: white; align-self: flex-end; padding: 10px; border-radius: 10px; max-width: 80%; }
