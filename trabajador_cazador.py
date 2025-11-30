@@ -2,9 +2,11 @@ import os
 import json
 import logging
 import datetime
+import time
 from apify_client import ApifyClient
 import psycopg2
 from psycopg2.extras import Json
+import google.generativeai as genai  # <--- NUEVO: Cerebro añadido
 from dotenv import load_dotenv
 
 # --- CONFIGURACIÓN INICIAL ---
@@ -13,6 +15,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - CAZADOR - %(leveln
 
 APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+
+# Configuración IA (Modelo Resistente "Lite")
+genai.configure(api_key=GOOGLE_API_KEY)
+MODELO_IA = "models/gemini-2.0-flash-lite-preview-02-05"
 
 # --- CONSTANTES FINANCIERAS (EL BOZAL) ---
 PRESUPUESTO_POR_PROSPECTO_CONTRATADO = 4.0  # Dólares USD
@@ -83,7 +90,70 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
     finally:
         if conn: conn.close()
 
-# --- 2. CONSULTA AL ARSENAL ---
+# --- 2. CEREBRO ESTRATÉGICO (NUEVA FUNCIÓN IA) ---
+
+def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
+    """
+    Se conecta 1 SOLA VEZ a Gemini para mejorar la búsqueda de Apify
+    basado en los datos reales de la campaña (Producto, Misión, Target).
+    Esto evita gastar dinero buscando basura.
+    """
+    logging.info("🧠 IA: Optimizando estrategia de búsqueda para ahorrar dinero...")
+    conn = None
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        # Obtenemos el ADN de la campaña
+        cur.execute("""
+            SELECT name, product_name, target_audience, mission_statement 
+            FROM campaigns 
+            WHERE id = %s
+        """, (campana_id,))
+        row = cur.fetchone()
+        cur.close()
+
+        if not row:
+            return busqueda_original # Si no hay datos, usamos la original
+
+        nombre_c, producto, target, mision = row
+        
+        # --- PROMPT DE INGENIERÍA DE VENTAS ---
+        prompt = f"""
+        Eres un Experto en Scraping y Generación de Leads B2B.
+        Tu objetivo es ahorrar dinero en Apify generando UNA sola frase de búsqueda ultra-optimizada.
+
+        CONTEXTO DE CAMPAÑA:
+        - Producto que vendemos: {producto}
+        - Cliente Ideal (Target): {target}
+        - Misión: {mision}
+        - Plataforma donde buscamos: {plataforma}
+
+        INTENCIÓN DEL USUARIO:
+        El usuario sugirió buscar: "{busqueda_original}"
+
+        TU TAREA:
+        Mejora la frase de búsqueda del usuario. Hazla específica para encontrar compradores reales y evitar genéricos.
+        Si la plataforma es Google Maps, usa palabras clave de categoría comercial.
+        Si es Instagram/TikTok, usa hashtags o términos de nicho.
+
+        SOLO RESPONDE LA FRASE DE BÚSQUEDA. NADA MÁS. SIN COMILLAS.
+        """
+
+        model = genai.GenerativeModel(MODELO_IA)
+        response = model.generate_content(prompt)
+        busqueda_optimizada = response.text.strip().replace('"', '')
+
+        logging.info(f"🎯 IA TRANSFORMACIÓN: '{busqueda_original}' -> '{busqueda_optimizada}'")
+        return busqueda_optimizada
+
+    except Exception as e:
+        logging.error(f"⚠️ Fallo optimización IA (Usando original): {e}")
+        return busqueda_original
+    finally:
+        if conn: conn.close()
+
+# --- 3. CONSULTA AL ARSENAL ---
 
 def consultar_arsenal(plataforma_objetivo, tipo_producto):
     logging.info(f"🔎 Consultando Arsenal para: Plataforma={plataforma_objetivo}")
@@ -116,7 +186,7 @@ def consultar_arsenal(plataforma_objetivo, tipo_producto):
     finally:
         if conn: conn.close()
 
-# --- 3. CONFIGURACIÓN AHORRADORA (INPUTS) ---
+# --- 4. CONFIGURACIÓN AHORRADORA (INPUTS) ---
 
 def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_extra):
     """
@@ -163,7 +233,7 @@ def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_ext
     base_input.update(reglas_ahorro)
     return base_input
 
-# --- 4. FILTRO DE CALIDAD Y NORMALIZACIÓN ---
+# --- 5. FILTRO DE CALIDAD Y NORMALIZACIÓN ---
 
 def validar_y_normalizar(item, plataforma, bot_id):
     """
@@ -205,7 +275,7 @@ def validar_y_normalizar(item, plataforma, bot_id):
 
     return datos
 
-# --- 5. FUNCIÓN PRINCIPAL ---
+# --- 6. FUNCIÓN PRINCIPAL ---
 
 def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Maps", tipo_producto="Tangible", limite_diario_contratado=4):
     
@@ -218,17 +288,23 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
 
     logging.info(f"🚀 CAZANDO: {cantidad_a_cazar} prospectos | Campaña: {campana_id}")
 
-    # 2. Consultar Arsenal
+    # 2. OPTIMIZACIÓN DE BÚSQUEDA CON IA (Paso Nuevo)
+    # Aquí es donde ahorramos dinero: Mejoramos la puntería antes de disparar.
+    busqueda_inteligente = optimizar_busqueda_con_ia(campana_id, prompt_busqueda, plataforma)
+    time.sleep(1) # Pequeña pausa de cortesía
+
+    # 3. Consultar Arsenal
     bot_info = consultar_arsenal(plataforma, tipo_producto)
     actor_id = bot_info["actor_id"]
     config_extra = bot_info["config_extra"]
 
-    # 3. Ejecutar Apify
+    # 4. Ejecutar Apify (Con la búsqueda optimizada)
     try:
         client = ApifyClient(APIFY_TOKEN)
-        run_input = preparar_input_blindado(actor_id, prompt_busqueda, ubicacion, cantidad_a_cazar, config_extra)
+        # NOTA: Usamos 'busqueda_inteligente' en lugar de 'prompt_busqueda'
+        run_input = preparar_input_blindado(actor_id, busqueda_inteligente, ubicacion, cantidad_a_cazar, config_extra)
         
-        logging.info(f"📡 Apify Run ({actor_id})...")
+        logging.info(f"📡 Apify Run ({actor_id}) Buscando: '{busqueda_inteligente}'...")
         run = client.actor(actor_id).call(run_input=run_input)
         
         if not run or run.get('status') != 'SUCCEEDED':
@@ -237,7 +313,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
 
         dataset_id = run["defaultDatasetId"]
         
-        # 4. Procesar Resultados
+        # 5. Procesar Resultados
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
