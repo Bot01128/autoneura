@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - NUTRIDOR - %(level
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# IA BLINDADA (LITE para volumen, pero con instrucciones complejas)
+# USAMOS EL MODELO LITE (Barato y Rápido)
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
     MODELO_IA = "models/gemini-2.0-flash-lite-preview-02-05"
@@ -43,47 +43,51 @@ class TrabajadorNutridor:
         """
         if not MODELO_IA: return None
 
-        # Mapeo de Estrategias por Paso (La Escalera de Persuasión)
+        # LA ESCALERA DE PERSUASIÓN (Tus 20 Trucos aplicados)
         estrategias = {
-            1: "Reciprocidad y Autoridad (Aporte de Valor + Rompehielo)",
-            2: "Efecto Zeigarnik y Curiosidad (Mostrar problema incompleto)",
-            3: "Prueba Social y Efecto Bandwagon (Caso de Éxito)",
-            4: "Manejo de Objeciones (Preocupaciones Financieras/Tiempo)",
-            5: "Escasez y Urgencia (Oferta Limitada/Cupos)",
-            6: "Downsell o Compromiso Menor (Simplificación de Elección)",
+            1: "Aporte de Valor + Reciprocidad (Regalar conocimiento sin pedir nada)",
+            2: "Efecto Zeigarnik (Mostrar que su proceso está incompleto)",
+            3: "Prueba Social (Caso de Éxito de industria similar)",
+            4: "Manejo de Objeciones (Atacar Precio/Tiempo antes de que lo digan)",
+            5: "Escasez y Urgencia (Cupos limitados o tiempo)",
+            6: "Downsell o Compromiso Menor (Simplificación)",
             7: "Aversión a la Pérdida y Despedida (Break-up Email)"
         }
         
         estrategia_actual = estrategias.get(paso_actual, "Aporte de Valor")
         
+        # PROMPT DE INGENIERÍA DE VENTAS
         prompt = f"""
-        ERES: El Mejor Vendedor del Mundo (Estilo Jordan Belfort + Robert Cialdini).
-        MISIÓN: Nutrir a un prospecto en el "Nido" (Dashboard de Ventas). Estamos en el MENSAJE {paso_actual} de 7.
+        ERES: Un Estratega de Ventas B2B (Estilo Jordan Belfort).
+        MISIÓN: Nutrir a un prospecto en el "Nido". Estamos en el MENSAJE {paso_actual} de 7.
         
-        DATOS:
-        - Cliente: {prospecto.get('business_name')} (Rubro: {analisis.get('industry')})
+        DATOS DEL PROSPECTO:
+        - Nombre: {prospecto.get('business_name')}
         - Dolor Principal: {analisis.get('pain_points', ['Necesidad General'])[0]}
-        - Producto que vendemos: {campana.get('product_description')}
-        - Tono: {campana.get('tone_voice')}
         
-        ESTRATEGIA A APLICAR AHORA: "{estrategia_actual}"
+        DATOS DE NOSOTROS (CAMPAÑA):
+        - Producto: {campana.get('product_description')}
+        - Tono de Voz: {campana.get('tone_voice')}
+        
+        ESTRATEGIA OBLIGATORIA AHORA: "{estrategia_actual}"
         
         TU TAREA (Generar JSON):
-        1. "mensaje_chat": El mensaje que el Chatbot le dirá proactivamente al cliente al entrar. Debe ser corto, conversacional y aplicar la estrategia.
-        2. "contenido_valor": Un breve texto o 'tip' que demuestre experto (solo para pasos 1-3).
-        3. "argumentario_defensa": (IMPORTANTE) Escribe 3 respuestas rápidas que el Chatbot debe tener listas si el cliente pone objeciones sobre Precio, Tiempo o Confianza en este momento.
+        Crea el contenido que verá el cliente en su Dashboard ("Nido").
+        1. "mensaje_chat": El mensaje PROACTIVO que el Chatbot enviará al abrir la web.
+        2. "contenido_valor": Un consejo o dato útil relacionado con su dolor.
+        3. "script_objeciones": 3 respuestas listas por si el cliente responde al chat.
         
         FORMATO JSON:
         {{
             "fase": {paso_actual},
             "estrategia_usada": "{estrategia_actual}",
-            "mensaje_chat_bienvenida": "Hola [Nombre]...",
-            "titulo_contenido_nido": "Título atractivo...",
-            "texto_contenido_nido": "Cuerpo del contenido...",
+            "mensaje_chat_bienvenida": "Hola [Nombre], encontré esto para ti...",
+            "titulo_contenido_nido": "Título persuasivo...",
+            "texto_contenido_nido": "Cuerpo del contenido (Max 100 palabras)...",
             "script_objeciones": {{
-                "si_dice_caro": "Respuesta usando re-encuadre de valor...",
-                "si_dice_no_tengo_tiempo": "Respuesta usando simplicidad...",
-                "si_dice_lo_pensare": "Respuesta usando urgencia..."
+                "objecion_precio": "Respuesta usando re-encuadre...",
+                "objecion_tiempo": "Respuesta usando simplicidad...",
+                "objecion_confianza": "Respuesta usando prueba social..."
             }}
         }}
         """
@@ -103,7 +107,6 @@ class TrabajadorNutridor:
     def verificar_permiso_cliente(self, client_id):
         """
         Verifica si el cliente pagó. Da 5 días de gracia.
-        Retorna: True (Puede trabajar), False (Detener servicio).
         """
         cur = self.conectar()
         if not cur: return False
@@ -115,16 +118,23 @@ class TrabajadorNutridor:
             
             fecha_pago, activo = res
             
-            # Si está activo, todo bien.
+            # Si está activo, pase adelante
             if activo: return True
             
-            # Si no está activo, verificamos la gracia de 5 días
+            # Si no está activo, verificamos Gracia de 5 Días
             if fecha_pago:
                 limite_gracia = fecha_pago + datetime.timedelta(days=5)
-                if datetime.date.today() <= limite_gracia.date():
-                    return True # En periodo de gracia
+                hoy = datetime.date.today()
+                
+                if hoy <= limite_gracia:
+                    logging.info(f"⚠️ Cliente {client_id} en PERIODO DE GRACIA (Vence: {limite_gracia})")
+                    return True
+                else:
+                    # Se acabó la gracia. Despedida.
+                    logging.warning(f"⛔ Cliente {client_id}: Periodo de gracia expirado.")
+                    return False
             
-            return False # Se acabó la fiesta
+            return False
             
         except Exception:
             return False
@@ -142,8 +152,8 @@ class TrabajadorNutridor:
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()
 
-            # 1. BUSCAR PROSPECTOS ACTIVOS EN EL NIDO ('nutriendo')
-            # Recuperamos también el último paso y la fecha de última actualización
+            # 1. BUSCAR PROSPECTOS EN 'NUTRIENDO'
+            # (Aquellos que ya dejaron su email en el Pre-Nido)
             cur.execute("""
                 SELECT 
                     p.id, p.business_name, p.pain_points, p.nido_data, p.updated_at,
@@ -158,37 +168,35 @@ class TrabajadorNutridor:
             for fila in prospectos:
                 pid, p_nombre, p_dolores, p_nido_json, p_ultimo_update, cid, client_id, c_prod, c_tono = fila
                 
-                # A. VERIFICAR SI EL CLIENTE PAGA (O TIENE GRACIA)
+                # A. VERIFICAR PAGOS (Regla de los 5 días)
                 if not self.verificar_permiso_cliente(client_id):
-                    logging.warning(f"⛔ Cliente {client_id} sin saldo y fuera de gracia. Pausando prospecto {pid}.")
-                    continue
+                    continue # Cliente moroso, no trabajamos para él.
 
                 # B. DETERMINAR EL PASO ACTUAL (1 al 7)
                 datos_nido = p_nido_json if p_nido_json else {}
-                paso_actual = datos_nido.get("fase_actual", 0)
+                paso_actual = datos_nido.get("fase", 0)
                 
-                # Lógica de Tiempo: Solo avanzamos si han pasado X días (ej: 2 días entre mensajes)
-                # O si es el paso 0 (recién llegado)
-                tiempo_desde_ultimo = (datetime.datetime.now() - p_ultimo_update).total_seconds()
-                horas_espera = 48 # 2 días entre mensajes (ajustable)
+                # C. CONTROL DE TIEMPO (No spamear)
+                # Esperamos 48 horas entre mensajes, excepto el primero (paso 0)
+                if p_ultimo_update:
+                    horas_pasadas = (datetime.datetime.now() - p_ultimo_update).total_seconds() / 3600
+                    if paso_actual > 0 and horas_pasadas < 48:
+                        continue # Aún no toca
                 
-                if paso_actual > 0 and tiempo_desde_ultimo < (horas_espera * 3600):
-                    continue # Aún no toca el siguiente mensaje
-
                 nuevo_paso = paso_actual + 1
 
-                # C. SI YA PASAMOS EL PASO 7 -> GAME OVER (Lead Frío)
+                # D. REGLA DE SALIDA: Si ya pasó el 7, es Lead Frío
                 if nuevo_paso > 7:
-                    logging.info(f"❄️ Prospecto {p_nombre} agotó los 7 intentos. Marcando como Lead Frío.")
+                    logging.info(f"❄️ Prospecto {p_nombre} sin respuesta tras 7 intentos. Lead Frío.")
                     cur.execute("UPDATE prospects SET status = 'lead_frio' WHERE id = %s", (pid,))
                     conn.commit()
                     continue
 
-                # D. GENERAR LA JUGADA (IA)
+                # E. GENERAR JUGADA CON IA
                 logging.info(f"🧠 Generando JUGADA {nuevo_paso}/7 para {p_nombre}...")
                 
                 campana_data = {"product_description": c_prod, "tone_voice": c_tono}
-                analisis_data = {"pain_points": p_dolores, "industry": "General"} # Simplificado
+                analisis_data = {"pain_points": p_dolores}
 
                 try:
                     contenido_nuevo = self.generar_jugada_maestra(
@@ -199,10 +207,7 @@ class TrabajadorNutridor:
                     )
                     
                     if contenido_nuevo:
-                        # Actualizamos el JSON del Nido conservando historial si quisieramos, 
-                        # pero aquí actualizamos la "Pantalla Actual" del Nido.
-                        contenido_nuevo["fase_actual"] = nuevo_paso
-                        
+                        # Guardamos en DB
                         cur.execute("""
                             UPDATE prospects 
                             SET nido_data = %s, updated_at = NOW()
@@ -211,18 +216,18 @@ class TrabajadorNutridor:
                         conn.commit()
                         logging.info(f"✅ Nido actualizado (Fase {nuevo_paso}) para {p_nombre}")
                         
-                        # Pausa de seguridad IA
+                        # Pausa para no saturar Google (Anti-429)
                         time.sleep(10)
 
                 except Exception as e_ia:
                     if "429" in str(e_ia):
-                        logging.warning("🛑 Nutridor en pausa por IA (429).")
+                        logging.warning("🛑 Pausa por Límite IA (429).")
                         time.sleep(60)
-                        break # Salir del ciclo para esperar
+                        break 
                     logging.error(f"Error IA en {p_nombre}: {e_ia}")
 
-            # 2. VERIFICAR INTERACCIONES PARA COBRAR (El Contador)
-            # Buscamos prospectos que tengan >= 3 interacciones y aún no estén validados
+            # 2. VERIFICAR INTERACCIONES (FACTURACIÓN)
+            # Si el cliente interactuó 3 veces, marcamos como "Validado" para cobrar.
             cur.execute("""
                 UPDATE prospects 
                 SET status = 'validado_facturable' 
@@ -230,7 +235,7 @@ class TrabajadorNutridor:
             """)
             if cur.rowcount > 0:
                 conn.commit()
-                logging.info(f"💰 Se han validado {cur.rowcount} nuevos prospectos facturables.")
+                logging.info(f"💰 ¡CA-CHING! {cur.rowcount} prospectos validados para facturación.")
 
             cur.close()
 
@@ -241,5 +246,5 @@ class TrabajadorNutridor:
 
 if __name__ == "__main__":
     worker = TrabajadorNutridor()
-    # Ejecutamos una vez al iniciar y luego el orquestador lo manejará
+    # Esto se ejecutará en bucle cuando lo llame el Orquestador
     worker.ejecutar_ciclo_seguimiento()
