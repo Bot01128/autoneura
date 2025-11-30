@@ -1,10 +1,11 @@
 import os
+import time
 import json
 import logging
+import datetime
 import psycopg2
 from psycopg2.extras import Json
 import google.generativeai as genai
-from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # --- CONFIGURACIÓN ---
@@ -14,182 +15,231 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - NUTRIDOR - %(level
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
+# IA BLINDADA (LITE para volumen, pero con instrucciones complejas)
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    # CORRECCIÓN CRÍTICA: Usar modelo estable
-    modelo_ia = genai.GenerativeModel('models/gemini-pro-latest')
+    MODELO_IA = "models/gemini-2.0-flash-lite-preview-02-05"
 else:
-    logging.error("❌ SIN CEREBRO: GOOGLE_API_KEY no encontrada.")
-    modelo_ia = None
+    MODELO_IA = None
 
 class TrabajadorNutridor:
     def __init__(self):
-        self.db_url = DATABASE_URL
+        self.conn = None
 
-    def conectar_db(self):
-        return psycopg2.connect(self.db_url)
+    def conectar(self):
+        try:
+            self.conn = psycopg2.connect(DATABASE_URL)
+            return self.conn.cursor()
+        except Exception as e:
+            logging.error(f"Error DB: {e}")
+            return None
 
-    # ==============================================================================
-    # 🧠 MODO CHAT (INTERACTIVO)
-    # ==============================================================================
-    
-    def responder_chat_nido(self, token_acceso, mensaje_usuario):
+    # --- CEREBRO PSICOLÓGICO (Generador de Jugadas) ---
+
+    def generar_jugada_maestra(self, prospecto, campana, analisis, paso_actual):
         """
-        Responde al chat del Nido y cuenta interacciones.
+        Genera el contenido para el Nido basado en el Paso (1-7) 
+        y aplica la estrategia psicológica correspondiente.
         """
-        logging.info(f"💬 Chat recibido en Nido (Token: {token_acceso})")
-        conn = self.conectar_db()
-        cur = conn.cursor()
-        respuesta_final = "Lo siento, estoy teniendo problemas de conexión. Intenta de nuevo."
+        if not MODELO_IA: return None
+
+        # Mapeo de Estrategias por Paso (La Escalera de Persuasión)
+        estrategias = {
+            1: "Reciprocidad y Autoridad (Aporte de Valor + Rompehielo)",
+            2: "Efecto Zeigarnik y Curiosidad (Mostrar problema incompleto)",
+            3: "Prueba Social y Efecto Bandwagon (Caso de Éxito)",
+            4: "Manejo de Objeciones (Preocupaciones Financieras/Tiempo)",
+            5: "Escasez y Urgencia (Oferta Limitada/Cupos)",
+            6: "Downsell o Compromiso Menor (Simplificación de Elección)",
+            7: "Aversión a la Pérdida y Despedida (Break-up Email)"
+        }
+        
+        estrategia_actual = estrategias.get(paso_actual, "Aporte de Valor")
+        
+        prompt = f"""
+        ERES: El Mejor Vendedor del Mundo (Estilo Jordan Belfort + Robert Cialdini).
+        MISIÓN: Nutrir a un prospecto en el "Nido" (Dashboard de Ventas). Estamos en el MENSAJE {paso_actual} de 7.
+        
+        DATOS:
+        - Cliente: {prospecto.get('business_name')} (Rubro: {analisis.get('industry')})
+        - Dolor Principal: {analisis.get('pain_points', ['Necesidad General'])[0]}
+        - Producto que vendemos: {campana.get('product_description')}
+        - Tono: {campana.get('tone_voice')}
+        
+        ESTRATEGIA A APLICAR AHORA: "{estrategia_actual}"
+        
+        TU TAREA (Generar JSON):
+        1. "mensaje_chat": El mensaje que el Chatbot le dirá proactivamente al cliente al entrar. Debe ser corto, conversacional y aplicar la estrategia.
+        2. "contenido_valor": Un breve texto o 'tip' que demuestre experto (solo para pasos 1-3).
+        3. "argumentario_defensa": (IMPORTANTE) Escribe 3 respuestas rápidas que el Chatbot debe tener listas si el cliente pone objeciones sobre Precio, Tiempo o Confianza en este momento.
+        
+        FORMATO JSON:
+        {{
+            "fase": {paso_actual},
+            "estrategia_usada": "{estrategia_actual}",
+            "mensaje_chat_bienvenida": "Hola [Nombre]...",
+            "titulo_contenido_nido": "Título atractivo...",
+            "texto_contenido_nido": "Cuerpo del contenido...",
+            "script_objeciones": {{
+                "si_dice_caro": "Respuesta usando re-encuadre de valor...",
+                "si_dice_no_tengo_tiempo": "Respuesta usando simplicidad...",
+                "si_dice_lo_pensare": "Respuesta usando urgencia..."
+            }}
+        }}
+        """
 
         try:
-            # CORRECCIÓN: Tablas y Columnas en Inglés
-            query = """
-                SELECT 
-                    p.id, 
-                    p.business_name, 
-                    p.pain_points, 
-                    p.nurture_interactions_count,
-                    c.campaign_name, 
-                    c.product_description,
-                    c.campaign_name
-                FROM prospects p
-                JOIN campaigns c ON p.campaign_id = c.id
-                WHERE p.access_token = %s
-            """
-            cur.execute(query, (token_acceso,))
-            data = cur.fetchone()
-
-            if not data:
-                return "Error: Token de sesión inválido."
-
-            pid, p_nombre, p_dolores, interacciones, c_cliente, c_producto, c_campana = data
-
-            # Parsear dolores
-            texto_dolores = ""
-            if p_dolores:
-                if isinstance(p_dolores, dict):
-                    texto_dolores = ", ".join(p_dolores.get("dolores_detectados", []))
-                elif isinstance(p_dolores, str):
-                    try: texto_dolores = ", ".join(json.loads(p_dolores).get("dolores_detectados", []))
-                    except: pass
-
-            # Prompt IA
-            prompt_analisis = f"""
-            Eres el Asistente de Ventas IA de '{c_cliente}'.
-            Estás hablando con '{p_nombre}'.
-            Producto que vendes: {c_producto}
-            Dolores del prospecto: {texto_dolores}
-            Mensaje del usuario: "{mensaje_usuario}"
-            Instrucciones: Responde como experto consultor, sé breve y profesional.
-            """
-
-            respuesta_ia = modelo_ia.generate_content(prompt_analisis)
-            respuesta_final = respuesta_ia.text.strip()
-
-            # CORRECCIÓN: Actualizar contador 'nurture_interactions_count'
-            nuevo_conteo = (interacciones or 0) + 1
-            cur.execute("""
-                UPDATE prospects 
-                SET nurture_interactions_count = %s,
-                    updated_at = NOW()
-                WHERE id = %s
-            """, (nuevo_conteo, pid))
-            
-            conn.commit()
-            logging.info(f"✅ Respuesta generada. Interacciones: {nuevo_conteo}")
-
+            model = genai.GenerativeModel(MODELO_IA)
+            res = model.generate_content(prompt)
+            texto_limpio = res.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(texto_limpio)
         except Exception as e:
-            logging.error(f"Error en Chat Nutridor: {e}")
-            if conn: conn.rollback()
+            logging.error(f"⚠️ Error IA Nutridor: {e}")
+            if "429" in str(e): raise e 
+            return None
+
+    # --- GESTIÓN FINANCIERA (El cobrador amable) ---
+
+    def verificar_permiso_cliente(self, client_id):
+        """
+        Verifica si el cliente pagó. Da 5 días de gracia.
+        Retorna: True (Puede trabajar), False (Detener servicio).
+        """
+        cur = self.conectar()
+        if not cur: return False
+        
+        try:
+            cur.execute("SELECT next_payment_date, is_active FROM clients WHERE id = %s", (client_id,))
+            res = cur.fetchone()
+            if not res: return False
+            
+            fecha_pago, activo = res
+            
+            # Si está activo, todo bien.
+            if activo: return True
+            
+            # Si no está activo, verificamos la gracia de 5 días
+            if fecha_pago:
+                limite_gracia = fecha_pago + datetime.timedelta(days=5)
+                if datetime.date.today() <= limite_gracia.date():
+                    return True # En periodo de gracia
+            
+            return False # Se acabó la fiesta
+            
+        except Exception:
+            return False
         finally:
             cur.close()
-            conn.close()
+            if self.conn: self.conn.close()
 
-        return respuesta_final
-
-    # ==============================================================================
-    # ♟️ MODO AJEDREZ (SEGUIMIENTO)
-    # ==============================================================================
+    # --- MOTOR DE EJECUCIÓN ---
 
     def ejecutar_ciclo_seguimiento(self):
-        logging.info("♟️ Iniciando ronda de Seguimiento (Ajedrez)...")
-        conn = self.conectar_db()
-        cur = conn.cursor()
-
-        try:
-            # CORRECCIÓN: Tablas y Columnas en Inglés
-            # JUGADA 1: APORTE DE VALOR
-            cur.execute("""
-                SELECT p.id, p.business_name, p.pain_points, c.product_description 
-                FROM prospects p JOIN campaigns c ON p.campaign_id = c.id
-                WHERE p.status = 'persuadido' 
-                AND p.updated_at < NOW() - INTERVAL '3 DAYS'
-            """)
-            for row in cur.fetchall():
-                self._generar_y_guardar_email(cur, row, "VALOR", "en_nutricion_1")
-
-            # JUGADA 2: PRUEBA SOCIAL
-            cur.execute("""
-                SELECT p.id, p.business_name, p.pain_points, c.product_description 
-                FROM prospects p JOIN campaigns c ON p.campaign_id = c.id
-                WHERE p.status = 'en_nutricion_1' 
-                AND p.updated_at < NOW() - INTERVAL '4 DAYS'
-            """)
-            for row in cur.fetchall():
-                self._generar_y_guardar_email(cur, row, "PRUEBA_SOCIAL", "en_nutricion_2")
-
-            # JUGADA 3: DESPEDIDA
-            cur.execute("""
-                SELECT p.id, p.business_name, p.pain_points, c.product_description 
-                FROM prospects p JOIN campaigns c ON p.campaign_id = c.id
-                WHERE p.status = 'en_nutricion_2' 
-                AND p.updated_at < NOW() - INTERVAL '5 DAYS'
-            """)
-            for row in cur.fetchall():
-                self._generar_y_guardar_email(cur, row, "DESPEDIDA", "lead_frio")
-
-            conn.commit()
-            logging.info("🏁 Ronda de seguimiento completada.")
-
-        except Exception as e:
-            logging.error(f"Error en ciclo de seguimiento: {e}")
-            conn.rollback()
-        finally:
-            cur.close()
-            conn.close()
-
-    def _generar_y_guardar_email(self, cur, datos, tipo_jugada, nuevo_estado):
-        pid, nombre, dolores, producto = datos
-        prompt = ""
-        asunto = ""
+        logging.info("🏗️ NUTRIDOR: Iniciando ronda de mantenimiento del Nido...")
         
-        if tipo_jugada == "VALOR":
-            prompt = f"Escribe email corto para {nombre}. Consejo sobre {producto}. Tono servicial."
-            asunto = "Pensé en esto para ti"
-        elif tipo_jugada == "PRUEBA_SOCIAL":
-            prompt = f"Escribe email para {nombre}. Caso de éxito anónimo con {producto}. Tono inspirador."
-            asunto = "Resultados recientes"
-        elif tipo_jugada == "DESPEDIDA":
-            prompt = f"Escribe email despedida amable para {nombre}. Preguntar si cerrar archivo."
-            asunto = "¿Cerramos el expediente?"
-
+        conn = None
         try:
-            res = modelo_ia.generate_content(prompt)
-            # CORRECCIÓN: 'status' y 'draft_message'
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+
+            # 1. BUSCAR PROSPECTOS ACTIVOS EN EL NIDO ('nutriendo')
+            # Recuperamos también el último paso y la fecha de última actualización
+            cur.execute("""
+                SELECT 
+                    p.id, p.business_name, p.pain_points, p.nido_data, p.updated_at,
+                    c.id as campaign_id, c.client_id, c.product_description, c.tone_voice
+                FROM prospects p
+                JOIN campaigns c ON p.campaign_id = c.id
+                WHERE p.status = 'nutriendo'
+            """)
+            
+            prospectos = cur.fetchall()
+            
+            for fila in prospectos:
+                pid, p_nombre, p_dolores, p_nido_json, p_ultimo_update, cid, client_id, c_prod, c_tono = fila
+                
+                # A. VERIFICAR SI EL CLIENTE PAGA (O TIENE GRACIA)
+                if not self.verificar_permiso_cliente(client_id):
+                    logging.warning(f"⛔ Cliente {client_id} sin saldo y fuera de gracia. Pausando prospecto {pid}.")
+                    continue
+
+                # B. DETERMINAR EL PASO ACTUAL (1 al 7)
+                datos_nido = p_nido_json if p_nido_json else {}
+                paso_actual = datos_nido.get("fase_actual", 0)
+                
+                # Lógica de Tiempo: Solo avanzamos si han pasado X días (ej: 2 días entre mensajes)
+                # O si es el paso 0 (recién llegado)
+                tiempo_desde_ultimo = (datetime.datetime.now() - p_ultimo_update).total_seconds()
+                horas_espera = 48 # 2 días entre mensajes (ajustable)
+                
+                if paso_actual > 0 and tiempo_desde_ultimo < (horas_espera * 3600):
+                    continue # Aún no toca el siguiente mensaje
+
+                nuevo_paso = paso_actual + 1
+
+                # C. SI YA PASAMOS EL PASO 7 -> GAME OVER (Lead Frío)
+                if nuevo_paso > 7:
+                    logging.info(f"❄️ Prospecto {p_nombre} agotó los 7 intentos. Marcando como Lead Frío.")
+                    cur.execute("UPDATE prospects SET status = 'lead_frio' WHERE id = %s", (pid,))
+                    conn.commit()
+                    continue
+
+                # D. GENERAR LA JUGADA (IA)
+                logging.info(f"🧠 Generando JUGADA {nuevo_paso}/7 para {p_nombre}...")
+                
+                campana_data = {"product_description": c_prod, "tone_voice": c_tono}
+                analisis_data = {"pain_points": p_dolores, "industry": "General"} # Simplificado
+
+                try:
+                    contenido_nuevo = self.generar_jugada_maestra(
+                        {"business_name": p_nombre}, 
+                        campana_data, 
+                        analisis_data, 
+                        nuevo_paso
+                    )
+                    
+                    if contenido_nuevo:
+                        # Actualizamos el JSON del Nido conservando historial si quisieramos, 
+                        # pero aquí actualizamos la "Pantalla Actual" del Nido.
+                        contenido_nuevo["fase_actual"] = nuevo_paso
+                        
+                        cur.execute("""
+                            UPDATE prospects 
+                            SET nido_data = %s, updated_at = NOW()
+                            WHERE id = %s
+                        """, (Json(contenido_nuevo), pid))
+                        conn.commit()
+                        logging.info(f"✅ Nido actualizado (Fase {nuevo_paso}) para {p_nombre}")
+                        
+                        # Pausa de seguridad IA
+                        time.sleep(10)
+
+                except Exception as e_ia:
+                    if "429" in str(e_ia):
+                        logging.warning("🛑 Nutridor en pausa por IA (429).")
+                        time.sleep(60)
+                        break # Salir del ciclo para esperar
+                    logging.error(f"Error IA en {p_nombre}: {e_ia}")
+
+            # 2. VERIFICAR INTERACCIONES PARA COBRAR (El Contador)
+            # Buscamos prospectos que tengan >= 3 interacciones y aún no estén validados
             cur.execute("""
                 UPDATE prospects 
-                SET status = %s,
-                    draft_message = %s,
-                    updated_at = NOW()
-                WHERE id = %s
-            """, (nuevo_estado, f"ASUNTO: {asunto}\n\n{res.text}", pid))
-            
-            logging.info(f"📧 Email ({tipo_jugada}) generado para ID {pid}")
-        except Exception as e:
-            logging.error(f"Fallo generando email para {pid}: {e}")
+                SET status = 'validado_facturable' 
+                WHERE status = 'nutriendo' AND interactions_count >= 3
+            """)
+            if cur.rowcount > 0:
+                conn.commit()
+                logging.info(f"💰 Se han validado {cur.rowcount} nuevos prospectos facturables.")
 
-# --- ENTRY POINT ---
+            cur.close()
+
+        except Exception as e:
+            logging.error(f"🔥 Error Ciclo Nutridor: {e}")
+        finally:
+            if conn: conn.close()
+
 if __name__ == "__main__":
-    n = TrabajadorNutridor()
-    n.ejecutar_ciclo_seguimiento()
+    worker = TrabajadorNutridor()
+    # Ejecutamos una vez al iniciar y luego el orquestador lo manejará
+    worker.ejecutar_ciclo_seguimiento()
