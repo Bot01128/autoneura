@@ -3,76 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diagnóstico Personalizado para {{ nombre_negocio }}</title>
+    <title>Tu Nido Personalizado - {{ nombre_negocio }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='nido.css') }}">
+    <!-- Estilos específicos para el chat -->
+    <style>
+        .msg-ia { background-color: #e3f2fd; padding: 10px; border-radius: 10px; margin-bottom: 5px; text-align: left; }
+        .msg-user { background-color: #f1f1f1; padding: 10px; border-radius: 10px; margin-bottom: 5px; text-align: right; }
+        .typing { font-style: italic; color: #888; font-size: 0.8em; }
+    </style>
 </head>
 <body>
     <div class="container">
+        
+        <!-- SECCIÓN 1: BIENVENIDA Y DIAGNÓSTICO -->
         <div class="section">
-            <h1>{{ titulo_personalizado }}</h1>
-            <p>Hemos preparado este breve análisis y demostración para mostrarte cómo la IA puede potenciar tu comunicación con los clientes.</p>
+            <h1>{{ contenido.diagnostico_titulo if contenido else titulo_personalizado }}</h1>
+            <p>{{ contenido.diagnostico_texto if contenido else 'Bienvenido a tu demostración privada.' }}</p>
         </div>
 
         <div class="section">
-            <h2>Diagnóstico Rápido</h2>
-            <p>{{ texto_diagnostico }}</p>
+            <h2>🔍 Lo que hemos encontrado</h2>
+            <p>{{ contenido.dolor_detectado if contenido else texto_diagnostico }}</p>
         </div>
 
+        <!-- SECCIÓN 2: LA SOLUCIÓN (CONTENIDO DE VALOR) -->
         <div class="section">
-            <h2>Demostración Interactiva</h2>
-            <p>Imagina que un cliente te contacta. Así es como un Agente de IA podría gestionar la conversación:</p>
-            <div class="chat-simulator">
-                <p class="chat-q">Cliente: {{ ejemplo_pregunta_1 }}</p>
-                <p class="chat-a"><strong>Tu Agente IA:</strong> {{ ejemplo_respuesta_1 }}</p>
-                <hr>
-                <p class="chat-q">Cliente: {{ ejemplo_pregunta_2 }}</p>
-                <p class="chat-a"><strong>Tu Agente IA:</strong> {{ ejemplo_respuesta_2 }}</p>
+            <h2>💡 Tu Plan de Acción</h2>
+            <div style="background: #fff3cd; padding: 15px; border-left: 5px solid #ffc107; border-radius: 4px;">
+                <p>{{ contenido.solucion_propuesta if contenido else texto_contenido_de_valor }}</p>
             </div>
         </div>
 
+        <!-- SECCIÓN 3: EL CHATBOT VENDEDOR (EL CEREBRO) -->
         <div class="section">
-            <h2>Contenido de Valor para tu Negocio</h2>
-            <p>{{ texto_contenido_de_valor }}</p>
-        </div>
-
-        <div class="section">
-            <h2>Habla con tu Agente IA Ahora</h2>
-            <p>¿Tienes alguna pregunta sobre nuestros productos o servicios? ¡Pruébalo tú mismo! Conversa con el Agente IA que hemos preparado para ti.</p>
+            <h2>🤖 Pruébame: Soy tu Nuevo Vendedor</h2>
+            <p>He estudiado tu negocio. Intenta venderme algo o ponme objeciones.</p>
+            
             <div class="live-chat-container">
                 <div class="chat-window" id="chat-window-ia">
-                    <div class="message bot-message">
-                        ¡Hola! Gracias por tu interés. Soy un Agente de IA entrenado específicamente para '{{ nombre_negocio }}'. ¿En qué puedo ayudarte hoy?
+                    <div class="msg-ia">
+                        Hola, soy el Agente IA de <strong>{{ nombre_negocio }}</strong>. 
+                        {{ contenido.chat_opener if contenido else '¿En qué puedo ayudarte hoy?' }}
                     </div>
                 </div>
                 <form id="chat-form-ia" class="chat-input-area">
-                    <input type="text" id="user-input-ia" placeholder="Escribe tu pregunta aquí..." autocomplete="off">
+                    <input type="text" id="user-input-ia" placeholder="Escribe aquí (Ej: ¿Cuánto cuesta?)..." autocomplete="off">
                     <button type="submit" class="btn-3d">Enviar</button>
                 </form>
             </div>
         </div>
         
-        <div class="section">
-            <h2>¿Prefieres hablar con una persona?</h2>
-            <p>Nuestro equipo está disponible para responder tus preguntas y ayudarte a empezar.</p>
-            <div class="live-chat-container">
-                <div class="chat-window" id="chat-window-human">
-                    <!-- El mensaje inicial ha sido removido -->
-                </div>
-                <form id="chat-form-human" class="chat-input-area">
-                    <input type="text" id="user-input-human" placeholder="Escribe tu mensaje aquí..." autocomplete="off">
-                    <button type="submit" class="btn-3d">Enviar</button>
-                </form>
-            </div>
-        </div>
-
+        <!-- SECCIÓN 4: CIERRE DE VENTA (HUMANO) -->
         <div class="section autoneura-promo-section">
-            <h2>¿Cansado de perder clientes potenciales?</h2>
-            <p>Potencia tus propias ventas con Inteligencia Artificial. AutoNeura crea asistentes virtuales que convierten 24/7, los 365 días del año.</p>
-            <a href="/" class="btn-promo btn-3d">CREAR CAMPAÑA CON INTELIGENCIA ARTIFICIAL AUTONEURA</a>
+            <h2>¿Te gustó cómo trabajé?</h2>
+            <p>Imagina tener a este agente trabajando para ti 24/7 sin descanso.</p>
+            <a href="/" class="btn-promo btn-3d">QUIERO CONTRATAR A ESTA IA AHORA</a>
         </div>
         
     </div>
 
-    <script src="{{ url_for('static', filename='nido.js') }}"></script>
+    <!-- === CEREBRO JAVASCRIPT DEL NIDO === -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatForm = document.getElementById('chat-form-ia');
+            const userInput = document.getElementById('user-input-ia');
+            const chatWindow = document.getElementById('chat-window-ia');
+            
+            // TOKEN DE SESIÓN (Vital para saber quién es el prospecto)
+            const sessionToken = "{{ token_sesion }}";
+
+            if (chatForm) {
+                chatForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const text = userInput.value.trim();
+                    if (!text) return;
+
+                    // 1. Mostrar mensaje del usuario
+                    const userDiv = document.createElement('div');
+                    userDiv.className = 'msg-user';
+                    userDiv.textContent = text;
+                    chatWindow.appendChild(userDiv);
+                    userInput.value = '';
+
+                    // 2. Mostrar "Escribiendo..."
+                    const loadingDiv = document.createElement('div');
+                    loadingDiv.className = 'typing';
+                    loadingDiv.textContent = 'Escribiendo...';
+                    chatWindow.appendChild(loadingDiv);
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+                    try {
+                        // 3. ENVIAR AL BACKEND (Nutridor)
+                        const response = await fetch('/api/chat-nido', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                message: text, 
+                                token: sessionToken // Enviamos el token para identificar al prospecto
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        // 4. Mostrar respuesta de la IA
+                        chatWindow.removeChild(loadingDiv); // Quitar "Escribiendo"
+                        
+                        const botDiv = document.createElement('div');
+                        botDiv.className = 'msg-ia';
+                        // Reemplazar saltos de línea por <br>
+                        botDiv.innerHTML = data.respuesta ? data.respuesta.replace(/\n/g, '<br>') : "Disculpa, me desconecté un momento.";
+                        chatWindow.appendChild(botDiv);
+
+                    } catch (error) {
+                        chatWindow.removeChild(loadingDiv);
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'msg-ia';
+                        errorDiv.style.color = 'red';
+                        errorDiv.textContent = "Error de conexión. Intenta de nuevo.";
+                        chatWindow.appendChild(errorDiv);
+                    }
+                    
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                });
+            }
+        });
+    </script>
 </body>
 </html>
