@@ -72,19 +72,43 @@ def get_db_connection():
 # ==========================================
 # NUEVO: LÓGICA DEL CEREBRO ARQUITECTO (ADMIN)
 # ==========================================
+# ==========================================
+# NUEVO: LÓGICA DEL CEREBRO ARQUITECTO (ADMIN)
+# ==========================================
 class CerebroArquitecto:
     def __init__(self, api_key):
+        # USAMOS LA VERSIÓN ESTABLE ELEGIDA (Rápida y sin bloqueos al pagar)
         self.model = genai.GenerativeModel('models/gemini-2.5-flash')
-        # Esquema simplificado para que la IA entienda la DB
-        self.schema = """
-        TABLAS DISPONIBLES EN SUPABASE:
-        1. clients (id, full_name, email, plan_type, plan_cost, created_at)
-        2. campaigns (id, client_id, campaign_name, status, created_at)
-        3. prospects (id, campaign_id, status, interactions_count, created_at)
         
-        RELACIONES:
-        - campaigns.client_id -> clients.id
-        - prospects.campaign_id -> campaigns.id
+        # ESQUEMA MEJORADO CON INSTRUCCIONES DE RELACIÓN
+        self.schema = """
+        ERES UN EXPERTO EN SQL POSTGRESQL. TU TRABAJO ES CONSULTAR ESTAS TABLAS:
+        
+        1. clients 
+           - Columnas: id, full_name, email, plan_cost (dinero), created_at.
+        
+        2. campaigns 
+           - Columnas: id, client_id, campaign_name, status, created_at.
+           - Relación: campaigns.client_id = clients.id
+        
+        3. prospects 
+           - Columnas: id, campaign_id, interactions_count, created_at.
+           - Relación: prospects.campaign_id = campaigns.id
+        
+        EJEMPLOS DE CONSULTAS QUE DEBES GENERAR (Inspírate en estas):
+        
+        - "Campaña con más prospectos":
+          SELECT c.campaign_name, COUNT(p.id) as total 
+          FROM campaigns c 
+          LEFT JOIN prospects p ON c.id = p.campaign_id 
+          GROUP BY c.campaign_name 
+          ORDER BY total DESC LIMIT 5;
+
+        - "Total de ingresos":
+          SELECT SUM(plan_cost) FROM clients;
+
+        - "Leads calificados (Interacciones > 3)":
+          SELECT COUNT(*) FROM prospects WHERE interactions_count >= 3;
         """
 
     def pensar(self, pregunta_usuario):
@@ -95,40 +119,59 @@ class CerebroArquitecto:
         try:
             # PASO 1: Generar SQL
             prompt_sql = f"""
-            Eres el Arquitecto de Datos de un sistema SaaS.
-            Tu misión: Convertir la pregunta del usuario en una consulta SQL POSTGRESQL válida.
+            Genera SOLO un código SQL (PostgreSQL) para responder: "{pregunta_usuario}"
             
-            ESQUEMA:
+            CONTEXTO DE BASE DE DATOS:
             {self.schema}
             
-            PREGUNTA: "{pregunta_usuario}"
-            
             REGLAS:
-            1. Solo responde con el código SQL. Sin markdown, sin explicaciones.
-            2. Solo usa sentencias SELECT (Lectura). Nada de DELETE o UPDATE.
-            3. Si preguntan por 'Leads', son prospectos con interactions_count >= 3.
-            4. Si preguntan por 'Ganancias' o 'Ingresos', suma el plan_cost de la tabla clients.
-            5. LIMITA los resultados a 10 filas si no especifican cantidad.
+            1. Devuelve SOLO el SQL puro. Sin comillas ```sql, sin explicaciones.
+            2. Usa SIEMPRE 'LEFT JOIN' si piden datos de prospectos por campaña.
+            3. Si piden 'Ingresos' o 'Ganancias', suma la columna 'plan_cost' de la tabla 'clients'.
             """
             
             response_sql = self.model.generate_content(prompt_sql)
-            sql_query = response_sql.text.strip().replace('```sql', '').replace('```', '')
+            # Limpieza agresiva del texto recibido
+            sql_query = response_sql.text.strip().replace('```sql', '').replace('```', '').replace('\n', ' ')
             
-            # Limpieza de seguridad básica
-            if "delete" in sql_query.lower() or "update" in sql_query.lower() or "drop" in sql_query.lower():
-                return "Lo siento, como medida de seguridad no puedo modificar datos, solo consultarlos."
+            # Seguridad
+            if any(x in sql_query.lower() for x in ["delete", "update", "drop", "insert", "alter"]):
+                return "Lo siento, solo tengo permisos de LECTURA (Consultas) por seguridad."
 
             # PASO 2: Ejecutar SQL
             cursor = conn.cursor()
             cursor.execute(sql_query)
             resultados = cursor.fetchall()
-            columnas = [desc[0] for desc in cursor.description]
+            
+            # Obtener nombres de columnas para que la IA entienda los datos
+            nombres_columnas = [desc[0] for desc in cursor.description] if cursor.description else []
+            cursor.close()
             conn.close()
             
-            datos_str = str(resultados)
             if not resultados:
-                datos_str = "La consulta no arrojó resultados."
+                return f"Consulté la base de datos, pero no encontré registros para esa pregunta. (Query: {sql_query})"
 
+            # PASO 3: Interpretar Resultados (Humanizar)
+            prompt_final = f"""
+            ACTÚA COMO UN ANALISTA DE NEGOCIOS EXPERTO.
+            
+            PREGUNTA DEL USUARIO: "{pregunta_usuario}"
+            
+            DATOS OBTENIDOS (SQL):
+            Columnas: {nombres_columnas}
+            Filas: {resultados}
+            
+            TU TAREA:
+            Responde la pregunta basándote EXCLUSIVAMENTE en los datos de arriba.
+            - Si es dinero, pon el signo $.
+            - Sé directo y profesional.
+            - Si la lista es larga, resume el Top 3.
+            """
+            response_final = self.model.generate_content(prompt_final)
+            return response_final.text
+
+        except Exception as e:
+            return f"Tuve un problema técnico analizando los datos: {str(e)}"
             # PASO 3: Interpretar Resultados
             prompt_final = f"""
             Actúa como el Director de Operaciones (COO) de AutoNeura.
