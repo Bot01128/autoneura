@@ -74,7 +74,7 @@ def get_db_connection():
 # ==========================================
 class CerebroArquitecto:
     def __init__(self, api_key):
-        self.model = genai.GenerativeModel('gemini-2.0-flash-lite-preview-02-05')
+        self.model = genai.GenerativeModel('models/gemini-2.5-flash')
         # Esquema simplificado para que la IA entienda la DB
         self.schema = """
         TABLAS DISPONIBLES EN SUPABASE:
