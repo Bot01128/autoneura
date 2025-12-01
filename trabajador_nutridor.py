@@ -15,10 +15,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - NUTRIDOR - %(level
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# USAMOS EL MODELO LITE (Barato y Rápido)
+# USAMOS EL MODELO GEMINI 2.5 FLASH (Rápido, Estable y sin Bloqueos al pagar)
+# Actualizamos esto para evitar el error 429
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    MODELO_IA = "models/gemini-2.0-flash-lite-preview-02-05"
+    MODELO_IA = "models/gemini-2.5-flash"
 else:
     MODELO_IA = None
 
@@ -34,7 +35,7 @@ class TrabajadorNutridor:
             logging.error(f"Error DB: {e}")
             return None
 
-    # --- CEREBRO PSICOLÓGICO (Generador de Jugadas) ---
+    # --- CEREBRO PSICOLÓGICO (Generador de Jugadas - Ciclo Lento 48h) ---
 
     def generar_jugada_maestra(self, prospecto, campana, analisis, paso_actual):
         """
@@ -81,14 +82,11 @@ class TrabajadorNutridor:
         {{
             "fase": {paso_actual},
             "estrategia_usada": "{estrategia_actual}",
-            "mensaje_chat_bienvenida": "Hola [Nombre], encontré esto para ti...",
-            "titulo_contenido_nido": "Título persuasivo...",
-            "texto_contenido_nido": "Cuerpo del contenido (Max 100 palabras)...",
-            "script_objeciones": {{
-                "objecion_precio": "Respuesta usando re-encuadre...",
-                "objecion_tiempo": "Respuesta usando simplicidad...",
-                "objecion_confianza": "Respuesta usando prueba social..."
-            }}
+            "diagnostico_titulo": "Título persuasivo...",
+            "diagnostico_texto": "Cuerpo del contenido (Max 100 palabras)...",
+            "dolor_detectado": "El problema específico...",
+            "solucion_propuesta": "Consejo de valor...",
+            "chat_opener": "Hola [Nombre], encontré esto para ti..."
         }}
         """
 
@@ -101,6 +99,72 @@ class TrabajadorNutridor:
             logging.error(f"⚠️ Error IA Nutridor: {e}")
             if "429" in str(e): raise e 
             return None
+
+    # --- CEREBRO INSTANTÁNEO (Chatbot Vendedor - NUEVA FUNCIÓN) ---
+    # Esta es la pieza que faltaba para conectar el Nido en tiempo real
+    
+    def responder_chat_instantaneo(self, mensaje_usuario, token_sesion):
+        """
+        Responde al prospecto EN TIEMPO REAL dentro del Nido.
+        Esta función es llamada por main.py (/api/chat-nido).
+        """
+        if not MODELO_IA: return "Error: Cerebro IA desconectado."
+
+        conn = None
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+            
+            # 1. Recuperar Contexto (Quién es el prospecto y qué le vendemos)
+            # Buscamos por el token de sesión que es seguro
+            cur.execute("""
+                SELECT p.business_name, p.pain_points, c.product_description, c.tone_voice, c.sales_link, p.id
+                FROM prospects p
+                JOIN campaigns c ON p.campaign_id = c.id
+                WHERE p.access_token = %s
+            """, (token_sesion,))
+            
+            datos = cur.fetchone()
+            if not datos: return "Error: Sesión no válida."
+            
+            p_nombre, p_dolores, c_producto, c_tono, c_link, p_id = datos
+            
+            # 2. Registrar Interacción (Para cobrar si llega a 3)
+            # Cada vez que el cliente habla, cuenta como interacción
+            cur.execute("UPDATE prospects SET interactions_count = interactions_count + 1 WHERE id = %s", (p_id,))
+            conn.commit()
+
+            # 3. Generar Respuesta con IA
+            prompt_chat = f"""
+            ERES: Un Vendedor Experto de Top Performer.
+            TU OBJETIVO: Cerrar la venta o agendar una llamada.
+            
+            CLIENTE: {p_nombre}
+            SU DOLOR: {p_dolores}
+            
+            PRODUCTO QUE VENDES: {c_producto}
+            TU TONO: {c_tono}
+            LINK DE VENTA (Solo úsalo si muestran interés de compra): {c_link}
+            
+            MENSAJE DEL CLIENTE: "{mensaje_usuario}"
+            
+            INSTRUCCIONES:
+            - Responde corto y persuasivo (máximo 2 párrafos).
+            - Si preguntan precio, da valor antes de dar el número.
+            - Si es una objeción, usa la técnica "Sentir, Sentí, Encontré".
+            - Termina siempre con una pregunta para mantener la conversación.
+            """
+            
+            model = genai.GenerativeModel(MODELO_IA)
+            res = model.generate_content(prompt_chat)
+            return res.text
+
+        except Exception as e:
+            logging.error(f"🔥 Error Chat Nido: {e}")
+            return "Lo siento, tuve un problema técnico. ¿Podrías repetirlo?"
+        finally:
+            if conn: conn.close()
+
 
     # --- GESTIÓN FINANCIERA (El cobrador amable) ---
 
@@ -247,4 +311,4 @@ class TrabajadorNutridor:
 if __name__ == "__main__":
     worker = TrabajadorNutridor()
     # Esto se ejecutará en bucle cuando lo llame el Orquestador
-    worker.ejecutar_ciclo_seguimiento()
+    # worker.ejecutar_ciclo_seguimiento()

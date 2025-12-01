@@ -4,6 +4,7 @@ import json
 import google.generativeai as genai
 import uuid
 import logging
+import re
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_babel import Babel, gettext
 from psycopg2.extras import Json
@@ -24,7 +25,7 @@ except ImportError:
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 
-# Configuración básica de logs para ver errores en Railway
+# Configuración básica de logs
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
@@ -68,6 +69,85 @@ def get_db_connection():
         print(f"Error DB: {e}")
         return None
 
+# ==========================================
+# CEREBRO ARQUITECTO (ADMIN & CLIENTE) - VERSIÓN GEMINI 2.5 FLASH
+# ==========================================
+class CerebroArquitecto:
+    def __init__(self, api_key):
+        # USAMOS LA VERSIÓN ESTABLE Y RÁPIDA
+        self.model = genai.GenerativeModel('models/gemini-2.5-flash')
+        
+        # ESQUEMA PARA SQL
+        self.schema = """
+        ERES UN EXPERTO EN SQL POSTGRESQL. TU TRABAJO ES CONSULTAR ESTAS TABLAS:
+        
+        1. clients 
+           - Columnas: id, full_name, email, plan_cost (dinero), created_at.
+        
+        2. campaigns 
+           - Columnas: id, client_id, campaign_name, status, created_at.
+           - Relación: campaigns.client_id = clients.id
+        
+        3. prospects 
+           - Columnas: id, campaign_id, interactions_count, created_at.
+           - Relación: prospects.campaign_id = campaigns.id
+        
+        EJEMPLOS DE CONSULTAS:
+        - "Campaña con más prospectos": SELECT c.campaign_name, COUNT(p.id) as total FROM campaigns c LEFT JOIN prospects p ON c.id = p.campaign_id GROUP BY c.campaign_name ORDER BY total DESC LIMIT 5;
+        - "Total de ingresos": SELECT SUM(plan_cost) FROM clients;
+        """
+
+    def pensar(self, pregunta_usuario):
+        conn = get_db_connection()
+        if not conn:
+            return "Error crítico: No hay conexión a la base de datos."
+        
+        try:
+            # PASO 1: Generar SQL
+            prompt_sql = f"""
+            Genera SOLO un código SQL (PostgreSQL) para responder: "{pregunta_usuario}"
+            CONTEXTO: {self.schema}
+            REGLAS:
+            1. Devuelve SOLO el SQL puro. Sin markdown.
+            2. Usa 'LEFT JOIN' para contar prospectos.
+            3. 'Ingresos' = SUM(plan_cost) de tabla clients.
+            """
+            
+            response_sql = self.model.generate_content(prompt_sql)
+            sql_query = response_sql.text.strip().replace('```sql', '').replace('```', '').replace('\n', ' ')
+            
+            # Seguridad
+            if any(x in sql_query.lower() for x in ["delete", "update", "drop", "insert", "alter"]):
+                return "Lo siento, solo tengo permisos de LECTURA."
+
+            # PASO 2: Ejecutar SQL
+            cursor = conn.cursor()
+            cursor.execute(sql_query)
+            resultados = cursor.fetchall()
+            nombres_columnas = [desc[0] for desc in cursor.description] if cursor.description else []
+            cursor.close()
+            conn.close()
+            
+            if not resultados:
+                return f"Consulté la base de datos y no encontré datos para esa pregunta."
+
+            # PASO 3: Interpretar Resultados
+            prompt_final = f"""
+            ACTÚA COMO ANALISTA DE NEGOCIOS.
+            PREGUNTA: "{pregunta_usuario}"
+            DATOS (SQL): Columnas {nombres_columnas}, Filas {resultados}
+            RESPONDE: Directo, profesional, usa signo $ si es dinero.
+            """
+            response_final = self.model.generate_content(prompt_final)
+            return response_final.text
+
+        except Exception as e:
+            return f"Error técnico: {str(e)}"
+
+# Instancia global del Arquitecto
+arquitecto_brain = CerebroArquitecto(GOOGLE_API_KEY) if GOOGLE_API_KEY else None
+
+
 # --- RUTAS PRINCIPALES ---
 @app.route('/')
 def home(): return render_template('client_dashboard.html')
@@ -89,7 +169,6 @@ def admin_taller(): return render_template('admin_taller.html')
 def obtener_datos_dashboard():
     conn = get_db_connection()
     if not conn: return jsonify({"error": "No DB"}), 500
-    
     try:
         cur = conn.cursor()
         client_email = 'admin@autoneura.com' 
@@ -110,9 +189,7 @@ def obtener_datos_dashboard():
 
         cur.execute("""
             SELECT 
-                c.campaign_name, 
-                c.created_at, 
-                c.status,
+                c.campaign_name, c.created_at, c.status,
                 COUNT(p.id) as encontrados,
                 COUNT(p.id) FILTER (WHERE p.interactions_count >= 3) as leads,
                 c.id
@@ -127,25 +204,15 @@ def obtener_datos_dashboard():
         campanas = []
         for row in cur.fetchall():
             campanas.append({
-                "nombre": row[0],
-                "fecha": row[1].strftime('%Y-%m-%d') if row[1] else "-",
-                "estado": row[2],
-                "encontrados": row[3],
-                "calificados": row[4],
-                "id": row[5]
+                "nombre": row[0], "fecha": row[1].strftime('%Y-%m-%d') if row[1] else "-",
+                "estado": row[2], "encontrados": row[3], "calificados": row[4], "id": row[5]
             })
 
         return jsonify({
-            "kpis": {
-                "total": total_prospectos,
-                "calificados": total_calificados,
-                "tasa": f"{tasa_conversion}%"
-            },
+            "kpis": {"total": total_prospectos, "calificados": total_calificados, "tasa": f"{tasa_conversion}%"},
             "campanas": campanas
         })
-
     except Exception as e:
-        print(f"Error API Dashboard: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cur.close()
@@ -160,7 +227,6 @@ def crear_campana():
         d = request.json
         cur = conn.cursor()
         
-        # 1. Obtener o Crear Cliente Admin
         cur.execute("SELECT id FROM clients WHERE email = 'admin@autoneura.com'")
         res = cur.fetchone()
         if not res:
@@ -170,19 +236,7 @@ def crear_campana():
         else:
             cid = res[0]
 
-        # 2. Preparar Datos
         desc = f"{d.get('que_vende')}. {d.get('descripcion')}"
-        ticket = d.get('ticket_producto')
-        competidores = d.get('competidores_principales')
-        cta = d.get('objetivo_cta')
-        dolores = d.get('dolores_pain_points')
-        tono = d.get('tono_marca')
-        red_flags = d.get('red_flags')
-        adn = d.get('ai_constitution')
-        pizarron = d.get('ai_blackboard')
-        whatsapp = d.get('numero_whatsapp')
-        link = d.get('enlace_venta')
-        
         cur.execute("""
             INSERT INTO campaigns (
                 client_id, campaign_name, product_description, target_audience, 
@@ -194,10 +248,10 @@ def crear_campana():
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', NOW())
             RETURNING id
         """, (
-            cid, d.get('nombre'), desc, d.get('a_quien'), 
-            d.get('tipo_producto'), d.get('idiomas'), d.get('ubicacion'),
-            ticket, competidores, cta, dolores, tono, red_flags,
-            adn, pizarron, whatsapp, link
+            cid, d.get('nombre'), desc, d.get('a_quien'), d.get('tipo_producto'), d.get('idiomas'), d.get('ubicacion'),
+            d.get('ticket_producto'), d.get('competidores_principales'), d.get('objetivo_cta'), d.get('dolores_pain_points'), 
+            d.get('tono_marca'), d.get('red_flags'), d.get('ai_constitution'), d.get('ai_blackboard'), 
+            d.get('numero_whatsapp'), d.get('enlace_venta')
         ))
         
         nid = cur.fetchone()[0]
@@ -205,7 +259,6 @@ def crear_campana():
         return jsonify({"success": True})
     except Exception as e:
         if conn: conn.rollback()
-        print(f"ERROR CREANDO CAMPAÑA: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
         conn.close()
@@ -220,8 +273,7 @@ def api_mis_campanas():
         cur.execute("""
             SELECT id, campaign_name, status, created_at, 
             (SELECT COUNT(*) FROM prospects WHERE campaign_id = campaigns.id) as count
-            FROM campaigns 
-            ORDER BY created_at DESC
+            FROM campaigns ORDER BY created_at DESC
         """)
         rows = cur.fetchall()
         data = []
@@ -237,7 +289,7 @@ def api_mis_campanas():
     finally:
         conn.close()
 
-# --- RUTAS DE NIDO ---
+# --- RUTAS DE NIDO (CORREGIDAS PARA JSON DINÁMICO) ---
 @app.route('/ver-pre-nido/<string:token>')
 def mostrar_pre_nido(token):
     conn = get_db_connection()
@@ -247,18 +299,25 @@ def mostrar_pre_nido(token):
             cur.execute("SELECT id, business_name, generated_copy FROM prospects WHERE access_token = %s", (token,))
             res = cur.fetchone()
             if res:
-                content = res[2] if res[2] else {}
-                if isinstance(content, str): content = json.loads(content)
-                # Extraemos datos para la plantilla
-                titulo = content.get('caja_1_titulo', 'Hola')
-                mensaje = content.get('caja_1_contenido', 'Bienvenido')
-                return render_template('persuasor.html', prospecto_id=res[0], nombre_negocio=res[1], 
-                                     titulo_personalizado=titulo,
-                                     mensaje_personalizado=mensaje)
+                prospect_id = res[0]
+                # Lógica mejorada para extraer el JSON
+                raw_copy = res[2]
+                contenido = {}
+                if raw_copy:
+                    if isinstance(raw_copy, str):
+                        try: contenido = json.loads(raw_copy)
+                        except: contenido = {}
+                    else: contenido = raw_copy
+                
+                # ENVIAMOS EL OBJETO COMPLETO 'CONTENIDO'
+                return render_template('persuasor.html', 
+                                     prospecto_id=prospect_id, 
+                                     contenido=contenido)
             return "Enlace no válido", 404
     finally:
         conn.close()
 
+# === FUNCIÓN CORREGIDA VITAL PARA EL NIDO ===
 @app.route('/generar-nido', methods=['POST'])
 def generar_nido_y_entrar():
     email = request.form.get('email')
@@ -266,33 +325,77 @@ def generar_nido_y_entrar():
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # 1. Actualizamos el email y el estado
             cur.execute("""
                 UPDATE prospects SET captured_email = %s, status = 'nutriendo', last_interaction_at = NOW()
-                WHERE id = %s RETURNING business_name, access_token
+                WHERE id = %s RETURNING business_name, access_token, generated_copy
             """, (email, pid))
             res = cur.fetchone()
             conn.commit()
+            
             if res:
-                return render_template('nido_template.html', nombre_negocio=res[0], token_sesion=res[1], 
-                                     titulo_personalizado=f"Bienvenido {res[0]}", texto_contenido_de_valor="Demo")
-            return "Error", 404
+                nombre_negocio = res[0]
+                token_sesion = res[1]
+                raw_copy = res[2]
+                
+                # 2. Extraemos el JSON (Copia Inteligente)
+                contenido = {}
+                if raw_copy:
+                    if isinstance(raw_copy, str):
+                        try: contenido = json.loads(raw_copy)
+                        except: contenido = {}
+                    else: contenido = raw_copy
+                
+                # 3. Renderizamos el Nido pasando el 'contenido' real
+                return render_template('nido_template.html', 
+                                     nombre_negocio=nombre_negocio, 
+                                     token_sesion=token_sesion,
+                                     contenido=contenido, # ¡ESTO ES LO IMPORTANTE!
+                                     titulo_personalizado=f"Bienvenido {nombre_negocio}")
+            return "Error al generar el nido", 404
     finally:
         conn.close()
 
+# ==========================================================
+# CORRECCIÓN VITAL: AQUÍ ESTÁ EL CAMBIO PARA QUE LA IA PIENSE
+# ==========================================================
 @app.route('/api/chat-nido', methods=['POST'])
 def chat_nido_api():
     d = request.json
+    mensaje = d.get('message')
+    token = d.get('token')
+    
+    # 1. Validación de seguridad
+    if not mensaje or not token:
+        return jsonify({"respuesta": "Error: Datos incompletos."})
+        
+    # 2. CONEXIÓN REAL CON EL CEREBRO
     if nutridor_brain:
-        return jsonify({"respuesta": "El Asistente está procesando tu solicitud..."}) 
-    return jsonify({"respuesta": "Conectando..."})
+        # Llamamos a la función que creamos en trabajador_nutridor.py
+        respuesta_ia = nutridor_brain.responder_chat_instantaneo(mensaje, token)
+        return jsonify({"respuesta": respuesta_ia})
+        
+    return jsonify({"respuesta": "El Asistente está desconectado (Falta API Key)."})
+# ==========================================================
 
 # --- RUTAS DEBUG ---
 @app.route('/ver-pre-nido')
-def debug_pre(): return render_template('persuasor.html', prospecto_id="TEST", nombre_negocio="Demo", titulo_personalizado="Demo", mensaje_personalizado="Demo")
+def debug_pre(): return render_template('persuasor.html', prospecto_id="TEST", contenido={})
 
 @app.route('/ver-nido')
-def debug_nido(): return render_template('nido_template.html', nombre_negocio="Demo", token_sesion="TEST", titulo_personalizado="Demo", texto_contenido_de_valor="Demo")
+def debug_nido(): return render_template('nido_template.html', nombre_negocio="Demo", token_sesion="TEST", titulo_personalizado="Demo", contenido={})
 
+# --- RUTA CHAT ARQUITECTO (INTELIGENTE) ---
+@app.route('/api/chat-arquitecto', methods=['POST'])
+def chat_arquitecto_api():
+    mensaje = request.json.get('message')
+    if not mensaje: return jsonify({"response": "Por favor escribe una pregunta."})
+    if arquitecto_brain:
+        return jsonify({"response": arquitecto_brain.pensar(mensaje)})
+    else:
+        return jsonify({"response": "Cerebro inactivo (Falta API Key)."})
+
+# --- RUTA ANTIGUA CHAT ---
 @app.route('/chat', methods=['POST'])
 def chat_admin():
     global dashboard_brain
@@ -300,7 +403,7 @@ def chat_admin():
     if dashboard_brain: return jsonify({"response": dashboard_brain.invoke({"question": request.json.get('message')})})
     return jsonify({"response": "Mantenimiento"})
 
-# --- NUEVA API: OBTENER DETALLES COMPLETOS DE UNA CAMPAÑA ---
+# --- API: DETALLES CAMPAÑA ---
 @app.route('/api/campana/<string:id>', methods=['GET'])
 def obtener_detalle_campana(id):
     conn = get_db_connection()
@@ -308,70 +411,42 @@ def obtener_detalle_campana(id):
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT 
-                id, campaign_name, product_description, target_audience, 
-                product_type, search_languages, geo_location,
-                ticket_price, competitors, cta_goal, pain_points_defined, 
-                tone_voice, red_flags, ai_constitution, ai_blackboard,
-                daily_prospects_limit, whatsapp_number, sales_link
-            FROM campaigns 
-            WHERE id = %s
+            SELECT id, campaign_name, product_description, target_audience, product_type, search_languages, geo_location,
+            ticket_price, competitors, cta_goal, pain_points_defined, tone_voice, red_flags, ai_constitution, ai_blackboard,
+            daily_prospects_limit, whatsapp_number, sales_link FROM campaigns WHERE id = %s
         """, (id,))
         row = cur.fetchone()
-        
         if row:
-            # Mapeo EXACTO para que el JS entienda
             campana = {
-                "id": row[0],
-                "campaign_name": row[1],
-                "product_description": row[2],
-                "target_audience": row[3],
-                "product_type": row[4],
-                "languages": row[5],
-                "geo_location": row[6],
-                "ticket_price": row[7],
-                "competitors": row[8],
-                "cta_goal": row[9],
-                "pain_points_defined": row[10],
-                "tone_voice": row[11],
-                "red_flags": row[12],
-                "adn_corporativo": row[13],
-                "pizarron_contexto": row[14],
-                "daily_prospects_limit": row[15],
-                "whatsapp_number": row[16],
-                "sales_link": row[17]
+                "id": row[0], "campaign_name": row[1], "product_description": row[2], "target_audience": row[3],
+                "product_type": row[4], "languages": row[5], "geo_location": row[6], "ticket_price": row[7],
+                "competitors": row[8], "cta_goal": row[9], "pain_points_defined": row[10], "tone_voice": row[11],
+                "red_flags": row[12], "adn_corporativo": row[13], "pizarron_contexto": row[14],
+                "daily_prospects_limit": row[15], "whatsapp_number": row[16], "sales_link": row[17]
             }
             return jsonify(campana)
         return jsonify({"error": "No encontrada"}), 404
     except Exception as e:
-        print(f"Error fetching campaign: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-# --- API: ACTUALIZAR CAMPAÑA (CORREGIDO) ---
+# --- API: ACTUALIZAR CAMPAÑA ---
 @app.route('/api/actualizar-campana', methods=['POST'])
 def actualizar_campana():
     conn = get_db_connection()
     try:
         d = request.json
         cur = conn.cursor()
-        
         cur.execute("""
-            UPDATE campaigns 
-            SET campaign_name = %s, product_description = %s, target_audience = %s,
-                search_languages = %s, ticket_price = %s, competitors = %s,
-                cta_goal = %s, pain_points_defined = %s, red_flags = %s,
-                tone_voice = %s, ai_constitution = %s, ai_blackboard = %s,
-                whatsapp_number = %s, sales_link = %s
-            WHERE id = %s
+            UPDATE campaigns SET campaign_name=%s, product_description=%s, target_audience=%s, search_languages=%s, 
+            ticket_price=%s, competitors=%s, cta_goal=%s, pain_points_defined=%s, red_flags=%s, tone_voice=%s, 
+            ai_constitution=%s, ai_blackboard=%s, whatsapp_number=%s, sales_link=%s WHERE id=%s
         """, (
-            d.get('campaign_name'), d.get('product_description'), d.get('target_audience'),
-            d.get('languages'), d.get('ticket_price'), d.get('competidores'),
-            d.get('cta_goal'), d.get('pain_points_defined'), d.get('red_flags'),
-            d.get('tone_voice'), d.get('adn_corporativo'), d.get('pizarron_contexto'),
-            d.get('whatsapp_number'), d.get('sales_link'),
-            d.get('id')
+            d.get('campaign_name'), d.get('product_description'), d.get('target_audience'), d.get('languages'),
+            d.get('ticket_price'), d.get('competidores'), d.get('cta_goal'), d.get('pain_points_defined'),
+            d.get('red_flags'), d.get('tone_voice'), d.get('adn_corporativo'), d.get('pizarron_contexto'),
+            d.get('whatsapp_number'), d.get('sales_link'), d.get('id')
         ))
         conn.commit()
         return jsonify({"success": True})

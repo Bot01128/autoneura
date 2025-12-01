@@ -3,42 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ _('Análisis de Oportunidad para tu Negocio') }}</title>
+    <!-- El título ahora es dinámico según la empresa del prospecto -->
+    <title>{{ contenido.caja_1_titulo if contenido else 'Oportunidad Detectada' }} - AutoNeura</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='persuasor.css') }}">
 </head>
 <body>
     <div class="container">
         
+        <!-- CAJA 1: EL VALOR GRATIS (ROMPEHIELO) -->
         <div class="header-section">
-            <h1>{{ _('Hemos Encontrado una Oportunidad de Crecimiento para Ti') }}</h1>
-            <p class="subtitle">{{ _('Nuestro sistema de IA, AutoNeura, ha realizado un análisis preliminar de tu presencia online y ha identificado un área clave para potenciar tu comunicación y tus ventas.') }}</p>
+            <!-- Aquí la IA pone el título gancho (ej: "Tu web está perdiendo clientes") -->
+            <h1>{{ contenido.caja_1_titulo if contenido else 'Hemos detectado una oportunidad' }}</h1>
+            
+            <!-- Aquí la IA explica el dolor detectado -->
+            <p class="subtitle">{{ contenido.caja_1_contenido if contenido else 'Nuestro sistema ha detectado un punto de mejora en tu estrategia digital.' }}</p>
         </div>
         
         <hr>
         
-        <h2>{{ _('El Siguiente Nivel: Un Diagnóstico Personalizado') }}</h2>
-        <p>{{ _('En el mercado actual, cada cliente no atendido es una venta perdida. Hemos notado patrones en las consultas de tus potenciales clientes que indican un interés inmediato.') }} <strong>{{ _('AutoNeura puede capturar ese interés y convertirlo en ventas 24/7.') }}</strong></p>
-        <p>{{ _('Te ofrecemos un análisis detallado y una demostración interactiva, sin costo alguno. Este es un servicio de consultoría valorado en $250, completamente gratis para ti. Solo necesitamos tu correo electrónico para enviarte el acceso a tu "Nido" de ventas personalizado.') }}</p>
+        <!-- CAJA 2: EL PUENTE (LA INVITACIÓN) -->
+        <h2>{{ contenido.caja_2_gancho if contenido else 'El Siguiente Nivel' }}</h2>
         
-        <!-- === INICIO DE LA CORRECCIÓN === -->
-        <!-- Corregido: El 'action' ahora usa url_for para ser más robusto. -->
-        <form method="POST" action="{{ url_for('generar_nido_y_entrar') }}">
-            
-            <!-- Corregido: El 'name' ahora es 'prospecto_id' y el 'value' es dinámico con la variable de Flask. -->
-            <input type="hidden" name="prospecto_id" value="{{ prospecto_id }}">
-            
-            <!-- Corregido: El 'name' ahora es 'email' para que coincida con lo que espera main.py. -->
-            <input type="email" name="email" placeholder="{{ _('Introduce tu mejor correo electrónico') }}" required>
-            
-            <button type="submit" class="btn-3d">{{ _('Sí, ¡Quiero mi Análisis Gratis!') }}</button>
-        </form>
-        <!-- === FIN DE LA CORRECCIÓN === -->
+        <div class="persuasion-text">
+            <!-- Aquí va la promesa de la IA -->
+            <p>{{ contenido.caja_2_promesa if contenido else 'Te ofrecemos un reporte detallado.' }}</p>
+            <p><strong>{{ contenido.caja_2_cierre if contenido else 'Accede a tu demostración ahora.' }}</strong></p>
+        </div>
+        
+        <!-- FORMULARIO DE CAPTURA (Tu "Embudo de la Muerte") -->
+        <div class="capture-form-container">
+            <form method="POST" action="{{ url_for('generar_nido_y_entrar') }}">
+                <input type="hidden" name="prospecto_id" value="{{ prospecto_id }}">
+                
+                <div class="input-group">
+                    <input type="email" name="email" placeholder="{{ _('Introduce tu mejor correo electrónico') }}" required>
+                </div>
+                
+                <!-- Botón con texto de acción fuerte -->
+                <button type="submit" class="btn-3d">{{ _('VER MI REPORTE GRATIS AHORA ➔') }}</button>
+                
+                <p class="security-note">🔒 Tus datos están seguros. Acceso inmediato.</p>
+            </form>
+        </div>
 
+        <!-- PUBLICIDAD DE AUTONEURA (Marca Blanca o Propia) -->
         <div class="autoneura-promo-section">
             <hr class="promo-divider">
-            <h3>{{ _('¿Cansado de perder clientes potenciales?') }}</h3>
-            <p>{{ _('Potencia tus propias ventas con Inteligencia Artificial. AutoNeura crea asistentes virtuales que convierten 24/7, los 365 días del año.') }}</p>
-            <a href="/" class="btn-3d btn-promo">{{ _('Crear campaña con Inteligencia Artificial AutoNeura') }}</a>
+            <p style="font-size: 0.8rem; color: #666;">Powered by <strong>AutoNeura AI</strong> - Ventas Autónomas B2B</p>
         </div>
 
     </div>

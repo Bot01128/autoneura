@@ -248,5 +248,60 @@
     </div>
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="{{ url_for('static', filename='client_script.js') }}"></script>
+    <!-- === CEREBRO DEL CHAT (Pegar esto al final del HTML, antes de </body>) === -->
+   <script>
+       document.addEventListener('DOMContentLoaded', () => {
+           // Esperamos un poco a que el DOM y el otro JS carguen
+           setTimeout(() => {
+               const chatForm = document.getElementById('chat-form');
+               const userInput = document.getElementById('user-input');
+               const chatMessages = document.getElementById('chat-messages');
+
+               if (chatForm) {
+                   // Clonamos para limpiar cualquier evento previo y evitar conflictos
+                   const newChatForm = chatForm.cloneNode(true);
+                   chatForm.parentNode.replaceChild(newChatForm, chatForm);
+                   
+                   const finalChatForm = document.getElementById('chat-form');
+                   const finalInput = document.getElementById('user-input');
+
+                   finalChatForm.addEventListener('submit', async (e) => {
+                       e.preventDefault(); // ¡EL SECRETRO ANTI-PESTAÑEO!
+                       
+                       const text = finalInput.value.trim();
+                       if (!text) return;
+
+                       // 1. Mensaje Usuario
+                       const userMsgDiv = document.createElement('p');
+                       userMsgDiv.className = 'msg-user';
+                       userMsgDiv.textContent = text;
+                       chatMessages.appendChild(userMsgDiv);
+                       finalInput.value = '';
+
+                       // 2. Loading
+                       const loadingDiv = document.createElement('p');
+                       loadingDiv.className = 'msg-assistant';
+                       loadingDiv.textContent = 'Consultando...';
+                       chatMessages.appendChild(loadingDiv);
+                       chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                       // 3. Llamada al Cerebro Arquitecto
+                       try {
+                           const response = await fetch('/api/chat-arquitecto', {
+                               method: 'POST',
+                               headers: { 'Content-Type': 'application/json' },
+                               body: JSON.stringify({ message: text })
+                           });
+                           const data = await response.json();
+                           loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+                       } catch (error) {
+                           loadingDiv.textContent = "Error de conexión con la IA.";
+                       }
+                       chatMessages.scrollTop = chatMessages.scrollHeight;
+                   });
+               }
+           }, 500); // Pequeño delay de seguridad
+       });
+   </script>
 </body>
 </html>
