@@ -70,7 +70,7 @@ def get_db_connection():
 
 # --- RUTAS PRINCIPALES ---
 @app.route('/')
-def home(): return render_template('client_dashboard.html') # Ajustado para que entre directo al dash si es cliente
+def home(): return render_template('client_dashboard.html')
 
 @app.route('/cliente')
 def client_dashboard(): return render_template('client_dashboard.html')
@@ -97,7 +97,7 @@ def obtener_datos_dashboard():
         cur.execute("""
             SELECT 
                 COUNT(p.id) as total,
-                COUNT(p.id) FILTER (WHERE p.nurture_interactions_count >= 3) as calificados
+                COUNT(p.id) FILTER (WHERE p.interactions_count >= 3) as calificados
             FROM prospects p
             JOIN campaigns c ON p.campaign_id = c.id
             JOIN clients cl ON c.client_id = cl.id
@@ -114,7 +114,7 @@ def obtener_datos_dashboard():
                 c.created_at, 
                 c.status,
                 COUNT(p.id) as encontrados,
-                COUNT(p.id) FILTER (WHERE p.nurture_interactions_count >= 3) as leads,
+                COUNT(p.id) FILTER (WHERE p.interactions_count >= 3) as leads,
                 c.id
             FROM campaigns c
             JOIN clients cl ON c.client_id = cl.id
@@ -132,7 +132,7 @@ def obtener_datos_dashboard():
                 "estado": row[2],
                 "encontrados": row[3],
                 "calificados": row[4],
-                "id": row[5] # Importante para el botón gestionar
+                "id": row[5]
             })
 
         return jsonify({
@@ -210,10 +210,9 @@ def crear_campana():
     finally:
         conn.close()
 
-# --- API: MIS CAMPAÑAS (Endpoint Específico para el JS nuevo) ---
+# --- API: MIS CAMPAÑAS ---
 @app.route('/api/mis-campanas', methods=['GET'])
 def api_mis_campanas():
-    # Reutilizamos la lógica de dashboard, pero simplificada para la tabla
     conn = get_db_connection()
     if not conn: return jsonify([]), 500
     try:
@@ -245,14 +244,17 @@ def mostrar_pre_nido(token):
     if not conn: return "Error DB", 500
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, business_name, generated_content FROM prospects WHERE access_token = %s", (token,))
+            cur.execute("SELECT id, business_name, generated_copy FROM prospects WHERE access_token = %s", (token,))
             res = cur.fetchone()
             if res:
                 content = res[2] if res[2] else {}
                 if isinstance(content, str): content = json.loads(content)
+                # Extraemos datos para la plantilla
+                titulo = content.get('caja_1_titulo', 'Hola')
+                mensaje = content.get('caja_1_contenido', 'Bienvenido')
                 return render_template('persuasor.html', prospecto_id=res[0], nombre_negocio=res[1], 
-                                     titulo_personalizado=content.get('prenido_titulo', 'Hola'),
-                                     mensaje_personalizado=content.get('prenido_mensaje', 'Bienvenido'))
+                                     titulo_personalizado=titulo,
+                                     mensaje_personalizado=mensaje)
             return "Enlace no válido", 404
     finally:
         conn.close()
@@ -281,7 +283,6 @@ def generar_nido_y_entrar():
 def chat_nido_api():
     d = request.json
     if nutridor_brain:
-        # Aquí se conectaría la lógica real del chat del nutridor
         return jsonify({"respuesta": "El Asistente está procesando tu solicitud..."}) 
     return jsonify({"respuesta": "Conectando..."})
 
@@ -299,7 +300,7 @@ def chat_admin():
     if dashboard_brain: return jsonify({"response": dashboard_brain.invoke({"question": request.json.get('message')})})
     return jsonify({"response": "Mantenimiento"})
 
-# --- NUEVA API: OBTENER DETALLES COMPLETOS (CORREGIDA PARA JS) ---
+# --- NUEVA API: OBTENER DETALLES COMPLETOS DE UNA CAMPAÑA ---
 @app.route('/api/campana/<string:id>', methods=['GET'])
 def obtener_detalle_campana(id):
     conn = get_db_connection()
@@ -348,7 +349,7 @@ def obtener_detalle_campana(id):
     finally:
         conn.close()
 
-# --- API: ACTUALIZAR CAMPAÑA (REPARADA: SIN DUPLICADOS) ---
+# --- API: ACTUALIZAR CAMPAÑA (CORREGIDO) ---
 @app.route('/api/actualizar-campana', methods=['POST'])
 def actualizar_campana():
     conn = get_db_connection()
@@ -356,7 +357,6 @@ def actualizar_campana():
         d = request.json
         cur = conn.cursor()
         
-        # Mapeo de lo que envía el JS a las columnas de la DB
         cur.execute("""
             UPDATE campaigns 
             SET campaign_name = %s, product_description = %s, target_audience = %s,
@@ -367,7 +367,7 @@ def actualizar_campana():
             WHERE id = %s
         """, (
             d.get('campaign_name'), d.get('product_description'), d.get('target_audience'),
-            d.get('languages'), d.get('ticket_price'), d.get('competitors'),
+            d.get('languages'), d.get('ticket_price'), d.get('competidores'),
             d.get('cta_goal'), d.get('pain_points_defined'), d.get('red_flags'),
             d.get('tone_voice'), d.get('adn_corporativo'), d.get('pizarron_contexto'),
             d.get('whatsapp_number'), d.get('sales_link'),
@@ -376,7 +376,6 @@ def actualizar_campana():
         conn.commit()
         return jsonify({"success": True})
     except Exception as e:
-        print(f"Error update: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
