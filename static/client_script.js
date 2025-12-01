@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("⚡ AutoNeura Frontend 2.0 Cargado");
 
+    // =========================================================
+    // 1. LÓGICA DE PESTAÑAS
+    // =========================================================
     const tabs = document.querySelectorAll('.tab-button');
     const contents = document.querySelectorAll('.tab-content');
 
@@ -24,31 +27,76 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     // =========================================================
-    // LÓGICA DE SELECCIÓN DE PLAN (ACTUALIZADA)
+    // 2. LÓGICA DE SELECCIÓN DE PLAN
     // =========================================================
-    // Recibe: elemento HTML, nombre, precio, Y CANTIDAD DE PROSPECTOS
     window.selectPlan = function(element, planName, price, prospects) {
-        // Remover clase selected
         document.querySelectorAll('#create-plans-container .plan-card').forEach(card => {
             card.classList.remove('selected');
         });
-        // Agregar selected
         element.classList.add('selected');
         
-        // Actualizar Resumen (FOTO 7B)
         document.getElementById('selected-plan').innerText = planName.charAt(0).toUpperCase() + planName.slice(1);
-        document.getElementById('selected-prospects').innerText = prospects; // NUEVO
+        document.getElementById('selected-prospects').innerText = prospects;
         document.getElementById('total-cost').innerText = `$${price}.00`;
         document.getElementById('recharge-amount').innerText = `$${price}.00`;
     };
 
-    // ... (El resto del JS de cargar campañas y gestión se mantiene igual que antes) ...
-    // Para ahorrarte espacio, no lo repito porque lo importante era la función selectPlan.
-    // PEGA AQUÍ EL RESTO DEL JS QUE YA TENÍAS, es compatible.
-    
-    // (Incluyendo cargarCampanas, abrirPestanaGemela, btnUpdate, btnLanzar)
-    // Asegúrate de que cargarCampanas esté aquí abajo.
-    
+    // =========================================================
+    // 3. LÓGICA DEL CHATBOT (ASISTENTE IA) - ¡AQUÍ ESTÁ!
+    // =========================================================
+    const chatForm = document.getElementById('chat-form');
+    const userInput = document.getElementById('user-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    if (chatForm) {
+        // Clonamos el formulario para limpiar eventos anteriores y evitar duplicados
+        const newChatForm = chatForm.cloneNode(true);
+        chatForm.parentNode.replaceChild(newChatForm, chatForm);
+        
+        const finalChatForm = document.getElementById('chat-form');
+        const finalInput = document.getElementById('user-input');
+
+        finalChatForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // ESTO EVITA QUE LA PÁGINA SE RECARGUE
+            
+            const text = finalInput.value.trim();
+            if (!text) return;
+
+            // Mostrar mensaje usuario
+            const userMsgDiv = document.createElement('p');
+            userMsgDiv.className = 'msg-user';
+            userMsgDiv.textContent = text;
+            chatMessages.appendChild(userMsgDiv);
+            finalInput.value = '';
+
+            // Mostrar "Escribiendo..."
+            const loadingDiv = document.createElement('p');
+            loadingDiv.className = 'msg-assistant';
+            loadingDiv.textContent = 'Procesando...';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                // Conexión con el Cerebro Arquitecto
+                const response = await fetch('/api/chat-arquitecto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await response.json();
+
+                // Mostrar respuesta real
+                loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+            } catch (error) {
+                loadingDiv.textContent = "Error: No puedo conectar con la base de datos.";
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
+    }
+
+    // =========================================================
+    // 4. LÓGICA DE GESTIÓN DE CAMPAÑAS (CARGA, ACTUALIZAR, LANZAR)
+    // =========================================================
     let campañasCache = [];
 
     async function cargarCampanas() {
@@ -61,6 +109,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             const res = await fetch('/api/mis-campanas');
             const data = await res.json();
             campañasCache = data;
+
+            // Lógica del interruptor: Si no hay campañas, ocultar pestañas avanzadas
+            const advancedTabs = document.querySelectorAll('.advanced-feature');
+            if (data.length === 0) {
+                advancedTabs.forEach(tab => tab.style.display = 'none'); // Ocultar
+                // Si estamos en una pestaña oculta, mover a Crear Campaña
+                if(!document.querySelector('.tab-button.active') || document.querySelector('.tab-button.active').style.display === 'none'){
+                    document.querySelector('[data-tab="create-campaign"]').click();
+                }
+            } else {
+                advancedTabs.forEach(tab => tab.style.display = 'inline-block'); // Mostrar
+            }
 
             let totalProspectos = 0;
             let totalLeads = 0;
@@ -251,6 +311,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if(data.success) {
                     alert("🚀 ¡Campaña Lanzada!");
                     document.querySelector('[data-tab="my-campaigns"]').click();
+                    cargarCampanas(); // Recargar para actualizar el estado del interruptor
                 } else {
                     alert("Error: " + (data.error || "Desconocido"));
                 }
