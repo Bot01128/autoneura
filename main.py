@@ -317,6 +317,7 @@ def mostrar_pre_nido(token):
     finally:
         conn.close()
 
+# === FUNCIÓN CORREGIDA VITAL PARA EL NIDO ===
 @app.route('/generar-nido', methods=['POST'])
 def generar_nido_y_entrar():
     email = request.form.get('email')
@@ -324,32 +325,53 @@ def generar_nido_y_entrar():
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # 1. Actualizamos el email y el estado
             cur.execute("""
                 UPDATE prospects SET captured_email = %s, status = 'nutriendo', last_interaction_at = NOW()
-                WHERE id = %s RETURNING business_name, access_token
+                WHERE id = %s RETURNING business_name, access_token, generated_copy
             """, (email, pid))
             res = cur.fetchone()
             conn.commit()
+            
             if res:
-                return render_template('nido_template.html', nombre_negocio=res[0], token_sesion=res[1], 
-                                     titulo_personalizado=f"Bienvenido {res[0]}", texto_contenido_de_valor="Demo")
-            return "Error", 404
+                nombre_negocio = res[0]
+                token_sesion = res[1]
+                raw_copy = res[2]
+                
+                # 2. Extraemos el JSON (Copia Inteligente)
+                contenido = {}
+                if raw_copy:
+                    if isinstance(raw_copy, str):
+                        try: contenido = json.loads(raw_copy)
+                        except: contenido = {}
+                    else: contenido = raw_copy
+                
+                # 3. Renderizamos el Nido pasando el 'contenido' real
+                return render_template('nido_template.html', 
+                                     nombre_negocio=nombre_negocio, 
+                                     token_sesion=token_sesion,
+                                     contenido=contenido, # ¡ESTO ES LO IMPORTANTE!
+                                     titulo_personalizado=f"Bienvenido {nombre_negocio}")
+            return "Error al generar el nido", 404
     finally:
         conn.close()
 
 @app.route('/api/chat-nido', methods=['POST'])
 def chat_nido_api():
     d = request.json
+    # Aquí deberíamos conectar al Nutridor real más adelante
+    # Por ahora respondemos algo básico para probar la conexión JS
     if nutridor_brain:
-        return jsonify({"respuesta": "El Asistente está procesando tu solicitud..."}) 
-    return jsonify({"respuesta": "Conectando..."})
+         # Simulación rápida si hay cerebro
+         return jsonify({"respuesta": f"Hola, soy la IA de AutoNeura. Recibí tu mensaje: '{d.get('message')}'"})
+    return jsonify({"respuesta": "El sistema se está reiniciando, intenta en unos segundos."})
 
 # --- RUTAS DEBUG ---
 @app.route('/ver-pre-nido')
 def debug_pre(): return render_template('persuasor.html', prospecto_id="TEST", contenido={})
 
 @app.route('/ver-nido')
-def debug_nido(): return render_template('nido_template.html', nombre_negocio="Demo", token_sesion="TEST", titulo_personalizado="Demo", texto_contenido_de_valor="Demo")
+def debug_nido(): return render_template('nido_template.html', nombre_negocio="Demo", token_sesion="TEST", titulo_personalizado="Demo", contenido={})
 
 # --- RUTA CHAT ARQUITECTO (INTELIGENTE) ---
 @app.route('/api/chat-arquitecto', methods=['POST'])
