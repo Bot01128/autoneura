@@ -4,6 +4,7 @@ import json
 import google.generativeai as genai
 import uuid
 import logging
+import re
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_babel import Babel, gettext
 from psycopg2.extras import Json
@@ -24,7 +25,7 @@ except ImportError:
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 
-# Configuración básica de logs para ver errores en Railway
+# Configuración básica de logs
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
@@ -67,6 +68,90 @@ def get_db_connection():
     except Exception as e:
         print(f"Error DB: {e}")
         return None
+
+# ==========================================
+# NUEVO: LÓGICA DEL CEREBRO ARQUITECTO (ADMIN)
+# ==========================================
+class CerebroArquitecto:
+    def __init__(self, api_key):
+        self.model = genai.GenerativeModel('gemini-2.0-flash-lite-preview-02-05')
+        # Esquema simplificado para que la IA entienda la DB
+        self.schema = """
+        TABLAS DISPONIBLES EN SUPABASE:
+        1. clients (id, full_name, email, plan_type, plan_cost, created_at)
+        2. campaigns (id, client_id, campaign_name, status, created_at)
+        3. prospects (id, campaign_id, status, interactions_count, created_at)
+        
+        RELACIONES:
+        - campaigns.client_id -> clients.id
+        - prospects.campaign_id -> campaigns.id
+        """
+
+    def pensar(self, pregunta_usuario):
+        conn = get_db_connection()
+        if not conn:
+            return "Error crítico: No hay conexión a la base de datos."
+        
+        try:
+            # PASO 1: Generar SQL
+            prompt_sql = f"""
+            Eres el Arquitecto de Datos de un sistema SaaS.
+            Tu misión: Convertir la pregunta del usuario en una consulta SQL POSTGRESQL válida.
+            
+            ESQUEMA:
+            {self.schema}
+            
+            PREGUNTA: "{pregunta_usuario}"
+            
+            REGLAS:
+            1. Solo responde con el código SQL. Sin markdown, sin explicaciones.
+            2. Solo usa sentencias SELECT (Lectura). Nada de DELETE o UPDATE.
+            3. Si preguntan por 'Leads', son prospectos con interactions_count >= 3.
+            4. Si preguntan por 'Ganancias' o 'Ingresos', suma el plan_cost de la tabla clients.
+            5. LIMITA los resultados a 10 filas si no especifican cantidad.
+            """
+            
+            response_sql = self.model.generate_content(prompt_sql)
+            sql_query = response_sql.text.strip().replace('```sql', '').replace('```', '')
+            
+            # Limpieza de seguridad básica
+            if "delete" in sql_query.lower() or "update" in sql_query.lower() or "drop" in sql_query.lower():
+                return "Lo siento, como medida de seguridad no puedo modificar datos, solo consultarlos."
+
+            # PASO 2: Ejecutar SQL
+            cursor = conn.cursor()
+            cursor.execute(sql_query)
+            resultados = cursor.fetchall()
+            columnas = [desc[0] for desc in cursor.description]
+            conn.close()
+            
+            datos_str = str(resultados)
+            if not resultados:
+                datos_str = "La consulta no arrojó resultados."
+
+            # PASO 3: Interpretar Resultados
+            prompt_final = f"""
+            Actúa como el Director de Operaciones (COO) de AutoNeura.
+            
+            PREGUNTA ORIGINAL: "{pregunta_usuario}"
+            DATOS OBTENIDOS DE LA DB: {datos_str}
+            COLUMNAS: {columnas}
+            
+            Instrucción: Responde al usuario de forma ejecutiva, profesional y basada en los datos. 
+            Si es dinero, usa formato moneda. Sé breve y directo.
+            """
+            response_final = self.model.generate_content(prompt_final)
+            return response_final.text
+
+        except Exception as e:
+            return f"Error procesando la consulta: {str(e)}"
+
+# Instancia global del Arquitecto
+arquitecto_brain = CerebroArquitecto(GOOGLE_API_KEY) if GOOGLE_API_KEY else None
+
+# ==========================================
+# FIN LÓGICA ARQUITECTO
+# ==========================================
 
 # --- RUTAS PRINCIPALES ---
 @app.route('/')
@@ -249,7 +334,6 @@ def mostrar_pre_nido(token):
             if res:
                 content = res[2] if res[2] else {}
                 if isinstance(content, str): content = json.loads(content)
-                # Extraemos datos para la plantilla
                 titulo = content.get('caja_1_titulo', 'Hola')
                 mensaje = content.get('caja_1_contenido', 'Bienvenido')
                 return render_template('persuasor.html', prospecto_id=res[0], nombre_negocio=res[1], 
@@ -293,6 +377,7 @@ def debug_pre(): return render_template('persuasor.html', prospecto_id="TEST", n
 @app.route('/ver-nido')
 def debug_nido(): return render_template('nido_template.html', nombre_negocio="Demo", token_sesion="TEST", titulo_personalizado="Demo", texto_contenido_de_valor="Demo")
 
+# --- RUTA ANTIGUA CHAT (Mantenida por compatibilidad) ---
 @app.route('/chat', methods=['POST'])
 def chat_admin():
     global dashboard_brain
@@ -300,7 +385,20 @@ def chat_admin():
     if dashboard_brain: return jsonify({"response": dashboard_brain.invoke({"question": request.json.get('message')})})
     return jsonify({"response": "Mantenimiento"})
 
-# --- NUEVA API: OBTENER DETALLES COMPLETOS DE UNA CAMPAÑA ---
+# --- NUEVA RUTA: CHAT ARQUITECTO (INTELIGENTE CON DB) ---
+@app.route('/api/chat-arquitecto', methods=['POST'])
+def chat_arquitecto_api():
+    mensaje = request.json.get('message')
+    if not mensaje:
+        return jsonify({"response": "Por favor escribe una pregunta."})
+    
+    if arquitecto_brain:
+        respuesta = arquitecto_brain.pensar(mensaje)
+        return jsonify({"response": respuesta})
+    else:
+        return jsonify({"response": "El cerebro del Arquitecto no está activo (Falta API Key)."})
+
+# --- API: OBTENER DETALLES COMPLETOS DE UNA CAMPAÑA ---
 @app.route('/api/campana/<string:id>', methods=['GET'])
 def obtener_detalle_campana(id):
     conn = get_db_connection()
@@ -320,7 +418,6 @@ def obtener_detalle_campana(id):
         row = cur.fetchone()
         
         if row:
-            # Mapeo EXACTO para que el JS entienda
             campana = {
                 "id": row[0],
                 "campaign_name": row[1],
@@ -349,7 +446,7 @@ def obtener_detalle_campana(id):
     finally:
         conn.close()
 
-# --- API: ACTUALIZAR CAMPAÑA (CORREGIDO) ---
+# --- API: ACTUALIZAR CAMPAÑA ---
 @app.route('/api/actualizar-campana', methods=['POST'])
 def actualizar_campana():
     conn = get_db_connection()
