@@ -21,10 +21,10 @@
             <div class="chat-header"><h2>Inteligencia Artificial AutoNeura</h2></div>
             <div class="chat-window">
                 <div class="chat-messages" id="chat-messages">
-                    <p class="msg-assistant">{{ _("¡Hola! Soy la Inteligencia Artificial AutoNeura. Estoy aquí para ayudarte a configurar tu fuerza de ventas autónoma. ¿En qué puedo ayudarte hoy?") }}</p>
+                    <p class="msg-assistant">{{ _("¡Hola! Soy la Inteligencia Artificial AutoNeura. Estoy conectada a tus datos. Pregúntame sobre tus ingresos, clientes o campañas.") }}</p>
                 </div>
                 <form id="chat-form" class="chat-input">
-                    <input type="text" id="user-input" placeholder="{{ _('Escribe tu pregunta...') }}">
+                    <input type="text" id="user-input" placeholder="{{ _('Ej: ¿Cuánto facturé este mes?') }}">
                     <button id="send-btn" type="submit">{{ _('Enviar') }}</button>
                 </form>
             </div>
@@ -57,7 +57,7 @@
                 </table>
             </div>
 
-            <!-- 2. GESTIONAR CAMPAÑA (SIN RESUMEN DE PAGO) -->
+            <!-- 2. GESTIONAR CAMPAÑA -->
             <div class="tab-content" id="manage-campaign" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
                     <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
@@ -104,7 +104,6 @@
                     <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
-                <!-- BOTÓN GUARDAR (SIN RESUMEN) -->
                 <div id="action-buttons-container" style="margin-top: 30px;">
                     <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); box-shadow: 0 5px 0 #0056b3;">
                         💾 {{ _('Guardar Cambios') }}
@@ -112,7 +111,7 @@
                 </div>
             </div>
 
-            <!-- 3. CREAR CAMPAÑA (SIN RESUMEN DE PAGO) -->
+            <!-- 3. CREAR CAMPAÑA -->
             <div class="tab-content" id="create-campaign" style="display: none;">
                 <h2>{{ _('Configurar Nueva Campaña') }}</h2>
                 <div class="form-section">
@@ -161,7 +160,6 @@
                     <input type="text" id="enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
                 </div>
 
-                <!-- BOTÓN LANZAR (SIN RESUMEN) -->
                 <div id="action-buttons-container" style="margin-top: 20px; text-align: center;">
                     <button id="lancam" class="cta-button" style="width: 50%;">{{ _('Lanzar Campaña') }}</button>
                 </div>
@@ -178,33 +176,22 @@
                 </div>
             </div>
 
-            <!-- 5. CONVERSACIONES (ESTRUCTURA DE CHAT) -->
+            <!-- 5. CONVERSACIONES -->
             <div class="tab-content" id="conversations" style="display: none;">
                 <h2>{{ _('Conversaciones Activas (Nido)') }}</h2>
-                
-                <!-- Contenedor del Chat Panel -->
                 <div style="display: flex; gap: 20px; height: 600px; margin-top: 20px;">
-                    <!-- Lista de Chats (Izquierda) -->
                     <div style="width: 300px; background: white; border: 1px solid #ddd; border-radius: 8px; overflow-y: auto;">
                         <div style="padding: 15px; border-bottom: 1px solid #eee; background: #f8f9fa; font-weight: bold;">Cola de Atención</div>
-                        <!-- Ejemplo de chats (se llenará con JS luego) -->
                         <div class="conversation-card active" style="padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; background: #e9ecef;">
                             <div style="font-weight: bold;">Cliente Demo</div>
                             <div style="font-size: 12px; color: #666;">Hola, me interesa...</div>
                         </div>
-                        <div class="conversation-card" style="padding: 15px; border-bottom: 1px solid #eee; cursor: pointer;">
-                            <div style="font-weight: bold;">Prospecto 2</div>
-                            <div style="font-size: 12px; color: #666;">¿Precio?</div>
-                        </div>
                     </div>
-
-                    <!-- Área de Chat (Derecha) -->
                     <div class="chat-display-area" style="flex-grow: 1; background: white; border: 1px solid #ddd; border-radius: 8px; display: flex; flex-direction: column;">
                         <div class="chat-header-display" style="padding: 15px; border-bottom: 1px solid #ddd; background: #f8f9fa; font-weight: bold;">
                             Chat con: Cliente Demo
                         </div>
                         <div class="chat-messages-display" style="flex-grow: 1; padding: 20px; overflow-y: auto;">
-                            <!-- Mensajes de ejemplo -->
                             <div class="msg-assistant" style="margin-bottom: 10px; max-width: 70%;">Hola, ¿en qué puedo ayudarte?</div>
                             <div class="msg-user" style="margin-bottom: 10px; max-width: 70%; margin-left: auto;">Quisiera saber el precio.</div>
                         </div>
@@ -221,5 +208,58 @@
   
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="{{ url_for('static', filename='mis_clientes.js') }}"></script>
+
+   <!-- SCRIPT CEREBRO ARQUITECTO (INCRUSTADO PARA ANULAR CUALQUIER OTRA LÓGICA) -->
+   <script>
+       document.addEventListener('DOMContentLoaded', () => {
+           const chatForm = document.getElementById('chat-form');
+           const userInput = document.getElementById('user-input');
+           const chatMessages = document.getElementById('chat-messages');
+
+           if (chatForm) {
+               // Reemplazamos el evento submit por defecto del JS externo
+               const newChatForm = chatForm.cloneNode(true);
+               chatForm.parentNode.replaceChild(newChatForm, chatForm);
+               
+               const finalChatForm = document.getElementById('chat-form');
+               const finalInput = document.getElementById('user-input');
+
+               finalChatForm.addEventListener('submit', async (e) => {
+                   e.preventDefault();
+                   const text = finalInput.value.trim();
+                   if (!text) return;
+
+                   // 1. Mostrar mensaje usuario
+                   const userMsgDiv = document.createElement('p');
+                   userMsgDiv.className = 'msg-user';
+                   userMsgDiv.textContent = text;
+                   chatMessages.appendChild(userMsgDiv);
+                   finalInput.value = '';
+
+                   // 2. Mostrar indicador de carga
+                   const loadingDiv = document.createElement('p');
+                   loadingDiv.className = 'msg-assistant';
+                   loadingDiv.textContent = 'Analizando datos...';
+                   chatMessages.appendChild(loadingDiv);
+                   chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                   try {
+                       const response = await fetch('/api/chat-arquitecto', {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify({ message: text })
+                       });
+                       const data = await response.json();
+
+                       // 3. Reemplazar carga con respuesta
+                       loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+                   } catch (error) {
+                       loadingDiv.textContent = "Error conectando con el Arquitecto.";
+                   }
+                   chatMessages.scrollTop = chatMessages.scrollHeight;
+               });
+           }
+       });
+   </script>
 </body>
 </html>
