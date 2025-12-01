@@ -21,14 +21,15 @@
             </div>
             <div class="chat-window">
                 <div class="chat-messages" id="chat-messages">
-                    <p class="msg-assistant">Sistema AutoNeura operativo. Reporte global:<br>
-                        - 👥 **7 Clientes Activos**<br>
-                        - 🎉 **2 Nuevos Registros**<br>
-                        - ⚠️ **1 Alerta Crítica:** Cliente 'Zapatería Veloz' al 90% de su cuota.
+                    <p class="msg-assistant">Sistema AutoNeura operativo. Estoy conectado a la Base de Datos.
+                        <br><br>
+                        Pruébame:
+                        <br>- "¿Cuánto gané este mes?"
+                        <br>- "¿Cuántos clientes tienen plan Básico?"
                     </p>
                 </div>
                 <form id="chat-form" class="chat-input">
-                    <input type="text" id="user-input" placeholder="Ej: Muéstrame clientes por consumo...">
+                    <input type="text" id="user-input" placeholder="Consulta métricas globales...">
                     <button id="send-btn" type="submit">Ejecutar</button>
                 </form>
             </div>
@@ -79,7 +80,6 @@
                     <label>Seleccionar Cliente</label>
                     <select><option>Ferretería El Tornillo Feliz</option><option>Zapatería Veloz</option></select>
                 </div>
-                <!-- Aquí iría el formulario completo de Crear Campaña -->
                 <p>Formulario de creación de campaña (En Construcción).</p>
             </div>
             
@@ -89,7 +89,6 @@
                     <label>Seleccionar Campaña a Supervisar</label>
                     <select><option>Ferretería - Búsqueda de Spas</option><option>Zapatería - Venta Escolar</option></select>
                 </div>
-                 <!-- Aquí iría la vista del Kanban -->
                 <p>Vista del flujo de prospectos para la campaña seleccionada (En Construcción).</p>
             </div>
 
@@ -99,12 +98,66 @@
                     <label>Seleccionar Cliente a Supervisar</label>
                     <select><option>Ferretería El Tornillo Feliz</option><option>Zapatería Veloz</option></select>
                 </div>
-                <!-- Aquí iría la vista de la "Torre de Control" -->
                 <p>Vista de las conversaciones para el cliente seleccionado (En Construcción).</p>
             </div>
         </div>
     </div>
   
    <script src="{{ url_for('static', filename='admin_script.js') }}"></script>
+   
+   <!-- SCRIPT DEDICADO PARA EL CEREBRO ARQUITECTO -->
+   <script>
+       document.addEventListener('DOMContentLoaded', () => {
+           const chatForm = document.getElementById('chat-form');
+           const userInput = document.getElementById('user-input');
+           const chatMessages = document.getElementById('chat-messages');
+
+           if (chatForm) {
+               // Reemplazamos el evento submit por defecto del JS externo
+               // Clonamos el nodo para eliminar listeners viejos (truco rápido)
+               const newChatForm = chatForm.cloneNode(true);
+               chatForm.parentNode.replaceChild(newChatForm, chatForm);
+               
+               // Volvemos a referenciar los elementos dentro del nuevo form
+               const finalChatForm = document.getElementById('chat-form');
+               const finalInput = document.getElementById('user-input');
+
+               finalChatForm.addEventListener('submit', async (e) => {
+                   e.preventDefault();
+                   const text = finalInput.value.trim();
+                   if (!text) return;
+
+                   // 1. Mostrar mensaje usuario
+                   const userMsgDiv = document.createElement('p');
+                   userMsgDiv.className = 'msg-user';
+                   userMsgDiv.textContent = text;
+                   chatMessages.appendChild(userMsgDiv);
+                   finalInput.value = '';
+
+                   // 2. Mostrar indicador de carga
+                   const loadingDiv = document.createElement('p');
+                   loadingDiv.className = 'msg-assistant';
+                   loadingDiv.textContent = 'Consultando base de datos...';
+                   chatMessages.appendChild(loadingDiv);
+                   chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                   try {
+                       const response = await fetch('/api/chat-arquitecto', {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify({ message: text })
+                       });
+                       const data = await response.json();
+
+                       // 3. Reemplazar carga con respuesta
+                       loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+                   } catch (error) {
+                       loadingDiv.textContent = "Error de conexión con el Arquitecto.";
+                   }
+                   chatMessages.scrollTop = chatMessages.scrollHeight;
+               });
+           }
+       });
+   </script>
 </body>
 </html>
