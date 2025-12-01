@@ -356,15 +356,27 @@ def generar_nido_y_entrar():
     finally:
         conn.close()
 
+# ==========================================================
+# CORRECCIÓN VITAL: AQUÍ ESTÁ EL CAMBIO PARA QUE LA IA PIENSE
+# ==========================================================
 @app.route('/api/chat-nido', methods=['POST'])
 def chat_nido_api():
     d = request.json
-    # Aquí deberíamos conectar al Nutridor real más adelante
-    # Por ahora respondemos algo básico para probar la conexión JS
+    mensaje = d.get('message')
+    token = d.get('token')
+    
+    # 1. Validación de seguridad
+    if not mensaje or not token:
+        return jsonify({"respuesta": "Error: Datos incompletos."})
+        
+    # 2. CONEXIÓN REAL CON EL CEREBRO
     if nutridor_brain:
-         # Simulación rápida si hay cerebro
-         return jsonify({"respuesta": f"Hola, soy la IA de AutoNeura. Recibí tu mensaje: '{d.get('message')}'"})
-    return jsonify({"respuesta": "El sistema se está reiniciando, intenta en unos segundos."})
+        # Llamamos a la función que creamos en trabajador_nutridor.py
+        respuesta_ia = nutridor_brain.responder_chat_instantaneo(mensaje, token)
+        return jsonify({"respuesta": respuesta_ia})
+        
+    return jsonify({"respuesta": "El Asistente está desconectado (Falta API Key)."})
+# ==========================================================
 
 # --- RUTAS DEBUG ---
 @app.route('/ver-pre-nido')
