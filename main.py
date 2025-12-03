@@ -454,7 +454,71 @@ def actualizar_campana():
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+# --- API ADMIN: DATOS GLOBALES ---
+@app.route('/api/admin/metricas-globales', methods=['GET'])
+def admin_metricas():
+    # AQUÍ DEBERÍAS PONER SEGURIDAD (verificar sesión de admin)
+    conn = get_db_connection()
+    if not conn: return jsonify({"error": "No DB"}), 500
+    try:
+        cur = conn.cursor()
+        
+        # 1. MRR (Suma de planes activos)
+        cur.execute("SELECT SUM(plan_cost) FROM clients WHERE is_active = TRUE")
+        mrr = cur.fetchone()[0] or 0
+        
+        # 2. Total Clientes
+        cur.execute("SELECT COUNT(*) FROM clients")
+        total_clientes = cur.fetchone()[0]
+        
+        # 3. Big Data (Prospectos Totales)
+        cur.execute("SELECT COUNT(*) FROM prospects")
+        total_prospectos = cur.fetchone()[0]
+        
+        # 4. Carga Sistema (Campañas Activas)
+        cur.execute("SELECT COUNT(*) FROM campaigns WHERE status = 'active'")
+        campanas_activas = cur.fetchone()[0]
+        
+        return jsonify({
+            "mrr": mrr,
+            "total_clientes": total_clientes,
+            "total_prospectos": total_prospectos,
+            "campanas_activas": campanas_activas
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
+# --- API ADMIN: LISTA DE CLIENTES ---
+@app.route('/api/admin/lista-clientes', methods=['GET'])
+def admin_lista_clientes():
+    conn = get_db_connection()
+    if not conn: return jsonify([]), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, full_name, email, plan_type, is_active, 
+            (SELECT COUNT(*) FROM campaigns WHERE client_id = clients.id) as num_campanas
+            FROM clients
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
+        clientes = []
+        for r in rows:
+            clientes.append({
+                "id": r[0],
+                "nombre": r[1] or "Sin Nombre",
+                "email": r[2],
+                "plan": r[3],
+                "activo": r[4],
+                "campanas": r[5]
+            })
+        return jsonify(clientes)
+    except Exception as e:
+        return jsonify([]), 500
+    finally:
+        conn.close()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
