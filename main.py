@@ -92,9 +92,12 @@ class CerebroArquitecto:
            - Columnas: id, campaign_id, interactions_count, created_at.
            - Relación: prospects.campaign_id = campaigns.id
         
+        4. finance_logs (NUEVA TABLA FINANCIERA)
+           - Columnas: movement_type (INGRESO/GASTO), category, amount_net, created_at.
+        
         EJEMPLOS DE CONSULTAS:
         - "Campaña con más prospectos": SELECT c.campaign_name, COUNT(p.id) as total FROM campaigns c LEFT JOIN prospects p ON c.id = p.campaign_id GROUP BY c.campaign_name ORDER BY total DESC LIMIT 5;
-        - "Total de ingresos": SELECT SUM(plan_cost) FROM clients;
+        - "Total de ingresos": SELECT SUM(amount_net) FROM finance_logs WHERE movement_type = 'INGRESO';
         """
 
     def pensar(self, pregunta_usuario):
@@ -110,7 +113,7 @@ class CerebroArquitecto:
             REGLAS:
             1. Devuelve SOLO el SQL puro. Sin markdown.
             2. Usa 'LEFT JOIN' para contar prospectos.
-            3. 'Ingresos' = SUM(plan_cost) de tabla clients.
+            3. Si preguntan finanzas, usa la tabla finance_logs.
             """
             
             response_sql = self.model.generate_content(prompt_sql)
@@ -454,6 +457,154 @@ def actualizar_campana():
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
+# --- API ADMIN: DATOS GLOBALES ---
+@app.route('/api/admin/metricas-globales', methods=['GET'])
+def admin_metricas():
+    # AQUÍ DEBERÍAS PONER SEGURIDAD (verificar sesión de admin)
+    conn = get_db_connection()
+    if not conn: return jsonify({"error": "No DB"}), 500
+    try:
+        cur = conn.cursor()
+        
+        # 1. MRR (Suma de planes activos)
+        cur.execute("SELECT SUM(plan_cost) FROM clients WHERE is_active = TRUE")
+        mrr = cur.fetchone()[0] or 0
+        
+        # 2. Total Clientes
+        cur.execute("SELECT COUNT(*) FROM clients")
+        total_clientes = cur.fetchone()[0]
+        
+        # 3. Big Data (Prospectos Totales)
+        cur.execute("SELECT COUNT(*) FROM prospects")
+        total_prospectos = cur.fetchone()[0]
+        
+        # 4. Carga Sistema (Campañas Activas)
+        cur.execute("SELECT COUNT(*) FROM campaigns WHERE status = 'active'")
+        campanas_activas = cur.fetchone()[0]
+        
+        return jsonify({
+            "mrr": mrr,
+            "total_clientes": total_clientes,
+            "total_prospectos": total_prospectos,
+            "campanas_activas": campanas_activas
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+# --- API ADMIN: LISTA DE CLIENTES ---
+@app.route('/api/admin/lista-clientes', methods=['GET'])
+def admin_lista_clientes():
+    conn = get_db_connection()
+    if not conn: return jsonify([]), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, full_name, email, plan_type, is_active, 
+            (SELECT COUNT(*) FROM campaigns WHERE client_id = clients.id) as num_campanas
+            FROM clients
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
+        clientes = []
+        for r in rows:
+            clientes.append({
+                "id": r[0],
+                "nombre": r[1] or "Sin Nombre",
+                "email": r[2],
+                "plan": r[3],
+                "activo": r[4],
+                "campanas": r[5]
+            })
+        return jsonify(clientes)
+    except Exception as e:
+        return jsonify([]), 500
+    finally:
+        conn.close()
+
+# ==========================================
+# NUEVAS RUTAS: FINANZAS Y MONITOR (ADMIN)
+# ==========================================
+
+# 1. OBTENER HISTORIAL FINANCIERO
+@app.route('/api/admin/finanzas', methods=['GET'])
+def admin_get_finanzas():
+    conn = get_db_connection()
+    if not conn: return jsonify([]), 500
+    try:
+        cur = conn.cursor()
+        # Traemos los últimos 50 movimientos
+        cur.execute("""
+            SELECT created_at, movement_type, category, description, amount_gross, amount_net 
+            FROM finance_logs 
+            ORDER BY created_at DESC LIMIT 50
+        """)
+        rows = cur.fetchall()
+        
+        # Calculamos el Balance Total (Ganancia Neta)
+        cur.execute("SELECT SUM(amount_net) FROM finance_logs")
+        res_total = cur.fetchone()
+        balance = res_total[0] if res_total and res_total[0] else 0.00
+        
+        historial = []
+        for r in rows:
+            historial.append({
+                "fecha": r[0].strftime('%Y-%m-%d %H:%M') if r[0] else "-",
+                "tipo": r[1],
+                "categoria": r[2],
+                "desc": r[3] or "-",
+                "bruto": float(r[4]),
+                "neto": float(r[5])
+            })
+            
+        return jsonify({"balance": float(balance), "historial": historial})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+# 2. REGISTRAR GASTO MANUAL (Tú registras lo que pagas)
+@app.route('/api/admin/registrar-gasto', methods=['POST'])
+def admin_registrar_gasto():
+    d = request.json
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        # Un gasto es negativo para el neto. 
+        monto = float(d.get('monto'))
+        monto_neto = monto * -1  
+        
+        cur.execute("""
+            INSERT INTO finance_logs (movement_type, category, description, amount_gross, amount_net)
+            VALUES ('GASTO', %s, %s, %s, %s)
+        """, ('Operativo', d.get('concepto'), d.get('monto'), monto_neto))
+        
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+# 3. MONITOR DE SISTEMA (Estado de las APIs)
+@app.route('/api/admin/monitor', methods=['GET'])
+def admin_monitor():
+    # Verificamos DB
+    db_status = "🟢 Online" if get_db_connection() else "🔴 Error Conexión"
+    
+    # Verificamos Google IA
+    ia_status = "🟢 Activo" if GOOGLE_API_KEY else "🔴 Falta Key"
+    
+    # Verificamos Apify
+    apify_status = "🟢 Activo" if os.environ.get('APIFY_TOKEN') else "🔴 Falta Token"
+    
+    return jsonify({
+        "database": db_status,
+        "google_ai": ia_status,
+        "apify": apify_status
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))

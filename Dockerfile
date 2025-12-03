@@ -1,20 +1,21 @@
-# Usa una imagen oficial de Python completa (no la slim)
+# Usa una imagen oficial de Python completa
 FROM python:3.11
 
-# Establece el directorio de trabajo dentro del contenedor
+# Establece el directorio de trabajo
 WORKDIR /app
 
-# Copia el archivo de requisitos al contenedor
+# Copia los requisitos
 COPY requirements.txt .
 
-# Instala los paquetes de Python necesarios
+# Instala los paquetes
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia el resto del código de tu aplicación
+# Copia el código
 COPY . .
 
-# Expone el puerto 8080 para que Fly.io pueda conectarse
+# Expone el puerto (Documentación)
 EXPOSE 8080
 
-# El comando final para ejecutar la aplicación
-CMD ["gunicorn", "main:app", "--bind", "0.0.0.0:8080"]
+# === CAMBIO CRÍTICO AQUÍ ===
+# Usamos "sh -c" para poder leer la variable $PORT de Railway
+CMD ["sh", "-c", "gunicorn main:app --bind 0.0.0.0:${PORT:-8080}"]
