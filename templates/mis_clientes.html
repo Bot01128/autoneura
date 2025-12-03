@@ -10,8 +10,10 @@
     <style>
         /* Ajuste para que la bandera y el código se vean bien */
         .iti { width: 100%; display: block; margin-top: 5px; }
-        /* Estilo visual para campos obligatorios vacíos (borde rojo suave) */
+        /* Estilo visual para campos obligatorios vacíos */
         input:invalid, textarea:invalid { border-color: #dc3545; }
+        /* Ocultar panel de edición por defecto */
+        #edit-panel-container { display: none; margin-top: 30px; border-top: 2px dashed #ccc; padding-top: 20px; }
     </style>
 </head>
 <body>
@@ -38,83 +40,87 @@
 
         <div class="right-panel">
             <div class="tab-nav">
+                <!-- NOTA: Se eliminó la pestaña 'Gestionar Campaña' para unificar la vista -->
                 <button class="tab-button active" data-tab="my-campaigns">{{ _('Mis Campañas') }}</button>
-                <button class="tab-button" data-tab="manage-campaign" id="btn-manage-campaign">{{ _('Gestionar Campaña') }}</button>
                 <button class="tab-button" data-tab="create-campaign">{{ _('Crear Campaña') }}</button>
                 <button class="tab-button" data-tab="prospect-flow">{{ _('Flujo de Prospectos') }}</button>
                 <button class="tab-button" data-tab="conversations">{{ _('Conversaciones') }}</button>
             </div>
 
-            <!-- 1. MIS CAMPAÑAS -->
+            <!-- 1. MIS CAMPAÑAS (AHORA CON GESTIÓN INTEGRADA) -->
             <div class="tab-content" id="my-campaigns" style="display: block;">
-                <div class="kpi-container">
-                    <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
-                    <div class="kpi-card"><span class="kpi-title">Leads Calificados</span><span class="kpi-value" id="kpi-leads">0</span></div>
-                    <div class="kpi-card"><span class="kpi-title">Tasa de Conversión</span><span class="kpi-value rate-success" id="kpi-rate">0%</span></div>
+                
+                <!-- VISTA DE LISTA (TABLA Y KPIS) -->
+                <div id="campaigns-list-view">
+                    <div class="kpi-container">
+                        <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Leads Calificados</span><span class="kpi-value" id="kpi-leads">0</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Tasa de Conversión</span><span class="kpi-value rate-success" id="kpi-rate">0%</span></div>
+                    </div>
+                    <h2>{{ _('Mis Campañas Activas') }}</h2>
+                    <table class="campaign-table">
+                        <thead>
+                            <tr>
+                                <th>{{ _('Nombre') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th><th>{{ _('Prospectos') }}</th><th>{{ _('Acción') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="campaigns-table-body"></tbody>
+                    </table>
                 </div>
-                <h2>{{ _('Mis Campañas Activas') }}</h2>
-                <table class="campaign-table">
-                    <thead>
-                        <tr>
-                            <th>{{ _('Nombre') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th><th>{{ _('Prospectos') }}</th><th>{{ _('Acción') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody id="campaigns-table-body"></tbody>
-                </table>
-            </div>
 
-            <!-- 2. GESTIONAR CAMPAÑA -->
-            <div class="tab-content" id="manage-campaign" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
-                    <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
-                </div>
-                <input type="hidden" id="edit_campaign_id">
+                <!-- VISTA DE EDICIÓN (OCULTA HASTA DARLE A VER) -->
+                <div id="edit-panel-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                        <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
+                        <button class="recharge-btn" style="background-color: #dc3545;" onclick="cerrarEdicion()">✖ Cerrar Edición</button>
+                    </div>
+                    <input type="hidden" id="edit_campaign_id">
 
-                <div class="form-section">
-                    <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
-                    <!-- CAMPOS OBLIGATORIOS (REQUIRED) -->
-                    <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}" required>
-                    <input type="text" id="edit_que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;" required>
-                    <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;" required>
-                    <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;" required>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                        <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio') }}" required>
-                        <select id="edit_objetivo_cta">
-                            <option value="vender_directo">{{ _('Vender directo') }}</option>
-                            <option value="agendar_llamada">{{ _('Agendar llamada') }}</option>
-                            <option value="descargar_pdf">{{ _('Descargar PDF') }}</option>
-                            <option value="solo_saludar">{{ _('Solo saludar') }}</option>
+                    <div class="form-section">
+                        <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
+                        <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}" required>
+                        <input type="text" id="edit_que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;" required>
+                        <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;" required>
+                        <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;" required>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio') }}" required>
+                            <select id="edit_objetivo_cta">
+                                <option value="vender_directo">{{ _('Vender directo') }}</option>
+                                <option value="agendar_llamada">{{ _('Agendar llamada') }}</option>
+                                <option value="descargar_pdf">{{ _('Descargar PDF') }}</option>
+                                <option value="solo_saludar">{{ _('Solo saludar') }}</option>
+                            </select>
+                        </div>
+                        <input type="text" id="edit_competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;" required>
+                        <textarea id="edit_dolores_pain_points" rows="2" placeholder="{{ _('Dolores') }}" style="margin-top:10px;"></textarea>
+                        <textarea id="edit_red_flags" rows="2" placeholder="{{ _('Red Flags') }}" style="margin-top:10px;"></textarea>
+                        <select id="edit_tono_marca" style="margin-top:10px;">
+                            <option value="corporativo">{{ _('Corporativo') }}</option>
+                            <option value="amigable_casual">{{ _('Amigable') }}</option>
+                            <option value="agresivo_disruptivo">{{ _('Agresivo') }}</option>
                         </select>
                     </div>
-                    <input type="text" id="edit_competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;" required>
-                    <textarea id="edit_dolores_pain_points" rows="2" placeholder="{{ _('Dolores') }}" style="margin-top:10px;"></textarea>
-                    <textarea id="edit_red_flags" rows="2" placeholder="{{ _('Red Flags') }}" style="margin-top:10px;"></textarea>
-                    <select id="edit_tono_marca" style="margin-top:10px;">
-                        <option value="corporativo">{{ _('Corporativo') }}</option>
-                        <option value="amigable_casual">{{ _('Amigable') }}</option>
-                        <option value="agresivo_disruptivo">{{ _('Agresivo') }}</option>
-                    </select>
-                </div>
 
-                <div class="form-section brain-box">
-                    <h3>🧠 {{ _('Modificar Cerebro de la IA') }}</h3>
-                    <label>🧬 {{ _('ADN Corporativo') }}</label>
-                    <textarea id="edit_ai_constitution" rows="6"></textarea>
-                    <label style="margin-top: 15px;">⚡ {{ _('Pizarrón Táctico') }}</label>
-                    <textarea id="edit_ai_blackboard" class="blackboard-field" rows="4"></textarea>
-                </div>
+                    <div class="form-section brain-box">
+                        <h3>🧠 {{ _('Modificar Cerebro de la IA') }}</h3>
+                        <label>🧬 {{ _('ADN Corporativo') }}</label>
+                        <textarea id="edit_ai_constitution" rows="6"></textarea>
+                        <label style="margin-top: 15px;">⚡ {{ _('Pizarrón Táctico') }}</label>
+                        <textarea id="edit_ai_blackboard" class="blackboard-field" rows="4"></textarea>
+                    </div>
 
-                <div class="form-section">
-                    <label>{{ _('5. Datos de Contacto') }}</label>
-                    <input type="tel" id="edit_numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
-                    <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
-                </div>
+                    <div class="form-section">
+                        <label>{{ _('5. Datos de Contacto') }}</label>
+                        <input type="tel" id="edit_numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
+                        <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
+                    </div>
 
-                <div id="action-buttons-container" style="margin-top: 30px;">
-                    <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); box-shadow: 0 5px 0 #0056b3;">
-                        💾 {{ _('Guardar Cambios') }}
-                    </button>
+                    <div id="action-buttons-container" style="margin-top: 30px;">
+                        <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); box-shadow: 0 5px 0 #0056b3;">
+                            💾 {{ _('Guardar Cambios') }}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -128,7 +134,6 @@
                 
                 <div class="form-section">
                     <label>{{ _('Datos de la Estrategia') }}</label>
-                    <!-- CAMPOS OBLIGATORIOS (REQUIRED) -->
                     <input type="text" id="nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}" style="margin-top:10px;" required>
                     <input type="text" id="que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;" required>
                     <input type="text" id="a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;" required>
@@ -217,56 +222,80 @@
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="{{ url_for('static', filename='mis_clientes.js') }}"></script>
 
-   <!-- SCRIPT CEREBRO ARQUITECTO (INCRUSTADO PARA ANULAR CUALQUIER OTRA LÓGICA) -->
+   <!-- SCRIPT INCRUSTADO: BANDERAS, CHAT Y FUNCIÓN CERRAR -->
    <script>
+       // Función para volver a la tabla
+       function cerrarEdicion() {
+           document.getElementById('edit-panel-container').style.display = 'none';
+           document.getElementById('campaigns-list-view').style.display = 'block';
+           window.scrollTo(0, 0);
+       }
+
        document.addEventListener('DOMContentLoaded', () => {
-           const chatForm = document.getElementById('chat-form');
-           const userInput = document.getElementById('user-input');
-           const chatMessages = document.getElementById('chat-messages');
+           // 1. FORZAR BANDERAS
+           var inputOps = {
+               initialCountry: "auto",
+               separateDialCode: true,
+               geoIpLookup: function(callback) {
+                   fetch('https://ipapi.co/json')
+                       .then(function(res) { return res.json(); })
+                       .then(function(data) { callback(data.country_code); })
+                       .catch(function() { callback("ve"); });
+               },
+               utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
+           };
+           var inputCrear = document.querySelector("#numero_whatsapp");
+           if (inputCrear) window.intlTelInput(inputCrear, inputOps);
+           
+           var inputEditar = document.querySelector("#edit_numero_whatsapp");
+           if (inputEditar) window.intlTelInput(inputEditar, inputOps);
 
-           if (chatForm) {
-               // Reemplazamos el evento submit por defecto del JS externo
-               const newChatForm = chatForm.cloneNode(true);
-               chatForm.parentNode.replaceChild(newChatForm, chatForm);
-               
-               const finalChatForm = document.getElementById('chat-form');
+           // 2. CHAT LATERAL
+           setTimeout(() => {
+               const chatForm = document.getElementById('chat-form');
                const finalInput = document.getElementById('user-input');
+               const chatMessages = document.getElementById('chat-messages');
 
-               finalChatForm.addEventListener('submit', async (e) => {
-                   e.preventDefault();
-                   const text = finalInput.value.trim();
-                   if (!text) return;
+               if (chatForm) {
+                   const newChatForm = chatForm.cloneNode(true);
+                   chatForm.parentNode.replaceChild(newChatForm, chatForm);
+                   
+                   const finalChatForm = document.getElementById('chat-form');
+                   // Re-capturamos el input porque al clonar el form a veces se pierde la referencia
+                   const textInput = document.getElementById('user-input'); 
 
-                   // 1. Mostrar mensaje usuario
-                   const userMsgDiv = document.createElement('p');
-                   userMsgDiv.className = 'msg-user';
-                   userMsgDiv.textContent = text;
-                   chatMessages.appendChild(userMsgDiv);
-                   finalInput.value = '';
+                   finalChatForm.addEventListener('submit', async (e) => {
+                       e.preventDefault();
+                       const text = textInput.value.trim();
+                       if (!text) return;
 
-                   // 2. Mostrar indicador de carga
-                   const loadingDiv = document.createElement('p');
-                   loadingDiv.className = 'msg-assistant';
-                   loadingDiv.textContent = 'Analizando datos...';
-                   chatMessages.appendChild(loadingDiv);
-                   chatMessages.scrollTop = chatMessages.scrollHeight;
+                       const userMsgDiv = document.createElement('p');
+                       userMsgDiv.className = 'msg-user';
+                       userMsgDiv.textContent = text;
+                       chatMessages.appendChild(userMsgDiv);
+                       textInput.value = '';
 
-                   try {
-                       const response = await fetch('/api/chat-arquitecto', {
-                           method: 'POST',
-                           headers: { 'Content-Type': 'application/json' },
-                           body: JSON.stringify({ message: text })
-                       });
-                       const data = await response.json();
+                       const loadingDiv = document.createElement('p');
+                       loadingDiv.className = 'msg-assistant';
+                       loadingDiv.textContent = 'Analizando datos...';
+                       chatMessages.appendChild(loadingDiv);
+                       chatMessages.scrollTop = chatMessages.scrollHeight;
 
-                       // 3. Reemplazar carga con respuesta
-                       loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
-                   } catch (error) {
-                       loadingDiv.textContent = "Error conectando con el Arquitecto.";
-                   }
-                   chatMessages.scrollTop = chatMessages.scrollHeight;
-               });
-           }
+                       try {
+                           const response = await fetch('/api/chat-arquitecto', {
+                               method: 'POST',
+                               headers: { 'Content-Type': 'application/json' },
+                               body: JSON.stringify({ message: text })
+                           });
+                           const data = await response.json();
+                           loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+                       } catch (error) {
+                           loadingDiv.textContent = "Error conectando con el Arquitecto.";
+                       }
+                       chatMessages.scrollTop = chatMessages.scrollHeight;
+                   });
+               }
+           }, 500);
        });
    </script>
 </body>
