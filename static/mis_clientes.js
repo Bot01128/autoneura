@@ -2,10 +2,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log("🚀 Mis Clientes (Admin) Cargado");
 
     // =========================================================
-    // 1. CONFIGURACIÓN DE BANDERAS (International Phone Input) 
+    // 1. CONFIGURACIÓN DE BANDERAS (International Phone Input)
     // =========================================================
     const phoneInputOptions = {
         initialCountry: "auto",
+        separateDialCode: true, // <--- ESTO MUESTRA EL +58 AL LADO DE LA BANDERA
         geoIpLookup: function(callback) {
             fetch('https://ipapi.co/json')
                 .then(function(res) { return res.json(); })
@@ -188,7 +189,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             setVal('edit_red_flags', data.red_flags);
             setVal('edit_ai_constitution', data.adn_corporativo || ""); 
             setVal('edit_ai_blackboard', data.pizarron_contexto || "");
-            setVal('edit_numero_whatsapp', data.whatsapp_number);
+            
+            // Cargar WhatsApp en el plugin de banderas
+            const inputEdit = document.querySelector("#edit_numero_whatsapp");
+            if(inputEdit && window.intlTelInputGlobals) {
+                const iti = window.intlTelInputGlobals.getInstance(inputEdit);
+                if(iti) iti.setNumber(data.whatsapp_number || "");
+            } else {
+                setVal('edit_numero_whatsapp', data.whatsapp_number);
+            }
+
             setVal('edit_enlace_venta', data.sales_link);
             setSelect('edit_objetivo_cta', data.cta_goal);
             setSelect('edit_tono_marca', data.tone_voice);
@@ -212,6 +222,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             const id = document.getElementById('edit_campaign_id').value;
             if(!id) return;
 
+            // VALIDACIÓN DE CAMPOS OBLIGATORIOS
+            const requiredIds = ['edit_nombre_campana', 'edit_que_vendes', 'edit_a_quien_va_dirigido', 'edit_idiomas_busqueda', 'edit_ticket_producto', 'edit_competidores_principales'];
+            for(let reqId of requiredIds) {
+                if(!document.getElementById(reqId).value.trim()) {
+                    alert("⚠️ Faltan campos obligatorios. Por favor completa la estrategia.");
+                    return;
+                }
+            }
+
             const payload = {
                 id: id,
                 campaign_name: document.getElementById('edit_nombre_campana').value,
@@ -226,7 +245,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 tone_voice: document.getElementById('edit_tono_marca').value,
                 adn_corporativo: document.getElementById('edit_ai_constitution').value,
                 pizarron_contexto: document.getElementById('edit_ai_blackboard').value,
-                whatsapp_number: document.getElementById('edit_numero_whatsapp').value,
+                // Obtener número completo con código de país (+58...)
+                whatsapp_number: document.querySelector("#edit_numero_whatsapp").nextElementSibling.classList.contains("iti") 
+                    ? window.intlTelInputGlobals.getInstance(document.querySelector("#edit_numero_whatsapp")).getNumber()
+                    : document.getElementById('edit_numero_whatsapp').value,
                 sales_link: document.getElementById('edit_enlace_venta').value
             };
 
@@ -255,6 +277,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnLanzar = document.getElementById('lancam');
     if (btnLanzar) {
         btnLanzar.addEventListener('click', async () => {
+            // VALIDACIÓN DE CAMPOS OBLIGATORIOS
+            const requiredIds = ['nombre_campana', 'que_vendes', 'a_quien_va_dirigido', 'idiomas_busqueda', 'ticket_producto', 'competidores_principales'];
+            for(let reqId of requiredIds) {
+                if(!document.getElementById(reqId).value.trim()) {
+                    alert("⚠️ Por favor completa los campos obligatorios para que la IA funcione bien.");
+                    return;
+                }
+            }
+
             // Recolección de datos del formulario Crear
             const payload = {
                 nombre: document.getElementById('nombre_campana').value,
@@ -272,7 +303,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 ai_blackboard: document.getElementById('ai_blackboard') ? document.getElementById('ai_blackboard').value : "",
                 // Manejo seguro del radio button
                 tipo_producto: document.querySelector('input[name="tipo_producto"]:checked') ? document.querySelector('input[name="tipo_producto"]:checked').value : "tangible",
-                numero_whatsapp: document.getElementById('numero_whatsapp').value,
+                // Obtener número completo con código de país (+58...)
+                numero_whatsapp: document.querySelector("#numero_whatsapp").nextElementSibling.classList.contains("iti") 
+                    ? window.intlTelInputGlobals.getInstance(document.querySelector("#numero_whatsapp")).getNumber()
+                    : document.getElementById('numero_whatsapp').value,
                 enlace_venta: document.getElementById('enlace_venta').value
             };
 
@@ -304,6 +338,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // Carga inicial
+    // Iniciar carga al abrir la página
     cargarCampanas();
 });
