@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia el código
 COPY . .
 
-# IMPORTANTE: No exponemos un puerto fijo.
-# Usamos el comando "sh -c" para que Docker pueda leer la variable $PORT de Railway
+# Expone el puerto (Documentación)
+EXPOSE 8080
+
+# === CAMBIO CRÍTICO AQUÍ ===
+# Usamos "sh -c" para poder leer la variable $PORT de Railway
 CMD ["sh", "-c", "gunicorn main:app --bind 0.0.0.0:${PORT:-8080}"]
