@@ -1,152 +1,309 @@
-/* =========================================
-   ESTILOS GENERALES (BASE DEL ÉXITO)
-   ========================================= */
-body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; height: 100%; }
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log("🚀 Mis Clientes (Admin) Cargado");
 
-.top-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 40px; border-bottom: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    // =========================================================
+    // 1. CONFIGURACIÓN DE BANDERAS (International Phone Input)
+    // =========================================================
+    const phoneInputOptions = {
+        initialCountry: "auto",
+        geoIpLookup: function(callback) {
+            fetch('https://ipapi.co/json')
+                .then(function(res) { return res.json(); })
+                .then(function(data) { callback(data.country_code); })
+                .catch(function() { callback("us"); });
+        },
+        utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
+    };
 
-.container { display: flex; height: calc(100% - 61px); }
-.left-panel { flex: 0 0 450px; background-color: #ffffff; padding: 30px; display: flex; flex-direction: column; border-right: 1px solid #ddd; }
-.right-panel { flex-grow: 1; background-color: #f8f9fa; padding: 40px; overflow-y: auto; }
+    // Aplicar a "Crear Campaña"
+    const inputCreate = document.querySelector("#numero_whatsapp");
+    if(inputCreate) window.intlTelInput(inputCreate, phoneInputOptions);
 
-/* INPUTS & SELECTS */
-select, textarea, input[type="text"], input[type="number"], input[type="tel"], input[type="email"] {
-    width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: white; font-size: 14px; font-family: inherit; box-sizing: border-box;
-}
+    // Aplicar a "Gestionar Campaña"
+    const inputEdit = document.querySelector("#edit_numero_whatsapp");
+    if(inputEdit) window.intlTelInput(inputEdit, phoneInputOptions);
 
-/* AJUSTE CRÍTICO PARA LAS BANDERAS (INTL-TEL-INPUT) */
-.iti { width: 100%; display: block; margin-top: 5px; }
 
-/* CAJAS ESPECIALES */
-.brain-box { background-color: #f8f9fa; padding: 20px; border-left: 5px solid #007bff; margin-top: 20px; border-radius: 5px; }
-.brain-box h3 { color: #0056b3; margin-top: 0; }
-.blackboard-field { border: 2px solid #28a745 !important; background-color: #f0fff4 !important; }
+    // =========================================================
+    // 2. LÓGICA DE PESTAÑAS
+    // =========================================================
+    const tabs = document.querySelectorAll('.tab-button');
+    const contents = document.querySelectorAll('.tab-content');
 
-/* --- RESUMEN FINAL (ESTILO LIMPIO - BORDE AMARILLO) --- */
-.summary-box {
-    background-color: transparent !important;
-    border: 3px solid #ffe066;
-    padding: 25px;
-    border-radius: 12px;
-    margin-top: 25px;
-    margin-bottom: 20px;
-    color: #333;
-}
-.summary-box h4 { margin-top: 0; border-bottom: 1px solid #ffe066; padding-bottom: 15px; margin-bottom: 15px; font-size: 1.2em; color: #000; }
-.summary-box p { margin: 12px 0; font-size: 1.05em; display: flex; justify-content: space-between; }
-.summary-divider { border: 0; border-top: 1px solid #ddd; margin: 15px 0; }
+    function switchTab(tabId) {
+        contents.forEach(content => content.style.display = 'none');
+        tabs.forEach(tab => tab.classList.remove('active'));
 
-/* =========================================
-   BOTONES 3D (ESTILO ÉXITO)
-   ========================================= */
-/* Verde (Lanzar, Guardar) */
-.cta-button {
-    width: 100%; background-color: #28a745; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.3em; font-weight: bold; cursor: pointer; margin-top: 10px; 
-    box-shadow: 0 5px 0 #1e7e34; transition: transform 0.1s;
-}
-.cta-button:active { transform: translateY(4px); box-shadow: 0 1px 0 #1e7e34; }
-.cta-button:disabled { background-color: #adb5bd; box-shadow: none; cursor: not-allowed; }
+        const selectedContent = document.getElementById(tabId);
+        if (selectedContent) selectedContent.style.display = 'block';
 
-/* Azul Pequeño (Recargar, Cerrar Sesión) */
-.recharge-btn { 
-    background: #007bff; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: 600; border: none; 
-    box-shadow: 0 4px 0 #0056b3; transition: transform 0.1s;
-}
-.recharge-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #0056b3; }
+        const selectedTab = document.querySelector(`[data-tab="${tabId}"]`);
+        if (selectedTab) selectedTab.classList.add('active');
+    }
 
-/* Azul Grande (Facturación) */
-.billing-btn-large {
-    width: 100%; background: #007bff; color: white; padding: 15px; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; margin-top: 20px; font-weight: bold;
-    box-shadow: 0 5px 0 #0056b3; transition: transform 0.1s;
-}
-.billing-btn-large:active { transform: translateY(4px); box-shadow: 0 1px 0 #0056b3; }
+    tabs.forEach(button => {
+        button.addEventListener('click', () => {
+            const target = button.getAttribute('data-tab');
+            switchTab(target);
+            if (target === 'my-campaigns') cargarCampanas(); 
+        });
+    });
 
-/* =========================================
-   PIPELINE / FLUJO (COLUMNAS DE COLORES)
-   ========================================= */
-.flow-container {
-    display: flex;
-    gap: 15px;
-    overflow-x: auto;
-    padding-bottom: 20px;
-    height: 500px;
-}
+    // =========================================================
+    // 3. LÓGICA DEL CHATBOT (CEREBRO ARQUITECTO - ADMIN)
+    // =========================================================
+    const chatForm = document.getElementById('chat-form');
+    const userInput = document.getElementById('user-input');
+    const chatMessages = document.getElementById('chat-messages');
 
-.flow-column {
-    flex: 0 0 250px;
-    background-color: #e9ecef;
-    border-radius: 8px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-}
+    if (chatForm) {
+        const newChatForm = chatForm.cloneNode(true);
+        chatForm.parentNode.replaceChild(newChatForm, chatForm);
+        
+        const finalChatForm = document.getElementById('chat-form');
+        const finalInput = document.getElementById('user-input');
 
-.flow-column h4 {
-    margin: 0 0 10px 0;
-    padding: 10px;
-    background: white;
-    border-radius: 6px;
-    text-align: center;
-    box-shadow: 0 2px 2px rgba(0,0,0,0.05);
-    border-top: 4px solid #007bff; /* Color defecto */
-}
+        finalChatForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Evita el pestañeo
+            
+            const text = finalInput.value.trim();
+            if (!text) return;
 
-/* Colores por etapa */
-.flow-column:nth-child(1) h4 { border-color: #6c757d; } /* Cazados - Gris */
-.flow-column:nth-child(2) h4 { border-color: #ffc107; } /* Análisis - Amarillo */
-.flow-column:nth-child(3) h4 { border-color: #17a2b8; } /* Persuadidos - Cyan */
-.flow-column:nth-child(4) h4 { border-color: #28a745; } /* Nutrición - Verde */
+            // Mensaje Usuario
+            const userMsgDiv = document.createElement('p');
+            userMsgDiv.className = 'msg-user';
+            userMsgDiv.textContent = text;
+            chatMessages.appendChild(userMsgDiv);
+            finalInput.value = '';
 
-.flow-card {
-    background: white;
-    padding: 12px;
-    margin-bottom: 10px;
-    border-radius: 6px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    font-size: 0.9em;
-    border-left: 3px solid transparent;
-    cursor: default;
-    transition: transform 0.2s;
-}
-.flow-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.flow-card strong { display: block; margin-bottom: 4px; color: #333; }
-.flow-card span { font-size: 0.8em; color: #666; }
+            // Loading
+            const loadingDiv = document.createElement('p');
+            loadingDiv.className = 'msg-assistant';
+            loadingDiv.textContent = 'Analizando datos...';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
 
-/* =========================================
-   ELEMENTOS EXTRA (Tabs, Tablas, Chat)
-   ========================================= */
-.tab-nav { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 30px; }
-.tab-nav button { background: none; border: none; padding: 15px 20px; cursor: pointer; font-size: 16px; color: #606770; border-bottom: 3px solid transparent; }
-.tab-nav button.active { color: #007bff; border-bottom-color: #007bff; font-weight: 600; }
+            try {
+                const response = await fetch('/api/chat-arquitecto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await response.json();
+                loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+            } catch (error) {
+                loadingDiv.textContent = "Error de conexión.";
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
+    }
 
-.kpi-container { display: flex; gap: 20px; margin-bottom: 25px; }
-.kpi-card { flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border: 1px solid #eee; }
-.kpi-title { display: block; color: #666; font-size: 0.9em; margin-bottom: 5px; text-transform: uppercase; }
-.kpi-value { font-size: 2em; font-weight: bold; color: #333; }
-.rate-success { color: #28a745; }
+    // =========================================================
+    // 4. GESTIÓN DE CAMPAÑAS (CRUD)
+    // =========================================================
+    
+    // CARGAR CAMPAÑAS
+    async function cargarCampanas() {
+        const tbody = document.getElementById('campaigns-table-body');
+        if(!tbody) return;
 
-.campaign-table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.campaign-table th, .campaign-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-.campaign-table tbody tr:hover { background-color: #f1f1f1; cursor: pointer; }
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Cargando...</td></tr>';
 
-/* Planes */
-.plans-container { display: flex; gap: 20px; margin-bottom: 20px; }
-.plan-card { flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: white; }
-.plan-card.selected, .plan-active-readonly { 
-    border: 2px solid #007bff !important; background-color: #f0f7ff !important; 
-    box-shadow: 0 8px 15px rgba(0,123,255,0.15) !important; transform: translateY(-4px); 
-    opacity: 1 !important;
-}
-.plan-disabled { opacity: 0.5; background-color: #f9f9f9; pointer-events: none; }
+        try {
+            const res = await fetch('/api/mis-campanas');
+            const data = await res.json();
 
-/* Chat */
-.chat-window { flex-grow: 1; border: 1px solid #ddd; border-radius: 8px; margin-top: 20px; display: flex; flex-direction: column; overflow: hidden; padding: 10px; }
-.chat-messages { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.msg-user { background-color: #007bff; color: white; align-self: flex-end; padding: 10px; border-radius: 10px; max-width: 80%; }
-.msg-assistant { background-color: #e9ecef; color: #333; align-self: flex-start; padding: 10px; border-radius: 10px; max-width: 80%; }
-.chat-input { display: flex; margin-top: 10px; gap: 10px; }
-.chat-input button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+            let totalProspectos = 0;
+            let totalLeads = 0;
+            tbody.innerHTML = ''; 
 
-/* Facturación */
-.billing-box { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 30px; margin-top: 20px; }
-.billing-title { font-size: 1.5em; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No hay campañas activas.</td></tr>';
+            } else {
+                data.forEach(camp => {
+                    totalProspectos += (camp.prospects_count || 0);
+                    // totalLeads += (camp.leads_count || 0); // Si tienes leads count
+
+                    const tr = document.createElement('tr');
+                    const estadoHtml = camp.status === 'active' 
+                        ? '<span style="color:green; font-weight:bold;">● Activa</span>' 
+                        : '<span style="color:red;">● Pausada</span>';
+
+                    tr.innerHTML = `
+                        <td><strong>${camp.name}</strong></td>
+                        <td>${camp.created_at || '-'}</td>
+                        <td>${estadoHtml}</td>
+                        <td>${camp.prospects_count || 0}</td>
+                        <td>
+                            <button class="cta-button btn-gestionar" 
+                                data-id="${camp.id}" 
+                                style="padding: 5px 15px; font-size: 12px; background-color: #007bff; width: auto; box-shadow: 0 3px 0 #0056b3;">
+                                👁️ Ver
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Actualizar KPIs visuales
+            const kpiTotal = document.getElementById('kpi-total');
+            if(kpiTotal) kpiTotal.innerText = totalProspectos;
+
+            // Listeners para botones "Ver"
+            document.querySelectorAll('.btn-gestionar').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    abrirPestanaGemela(id);
+                });
+            });
+
+        } catch (error) {
+            console.error("Error:", error);
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Error de conexión.</td></tr>';
+        }
+    }
+
+    // ABRIR EDICIÓN (Cargar datos en el formulario)
+    async function abrirPestanaGemela(id) {
+        try {
+            const res = await fetch(`/api/campana/${id}`);
+            if (!res.ok) throw new Error("Fallo API");
+            const data = await res.json();
+
+            // Llenar campos
+            const title = document.getElementById('manage-campaign-title');
+            if(title) title.innerText = data.campaign_name;
+            
+            const hiddenId = document.getElementById('edit_campaign_id');
+            if(hiddenId) hiddenId.value = data.id;
+
+            setVal('edit_nombre_campana', data.campaign_name);
+            setVal('edit_que_vendes', data.product_description);
+            setVal('edit_a_quien_va_dirigido', data.target_audience);
+            setVal('edit_idiomas_busqueda', data.languages);
+            setVal('edit_ticket_producto', data.ticket_price);
+            setVal('edit_competidores_principales', data.competitors);
+            setVal('edit_dolores_pain_points', data.pain_points_defined);
+            setVal('edit_red_flags', data.red_flags);
+            setVal('edit_ai_constitution', data.adn_corporativo || ""); 
+            setVal('edit_ai_blackboard', data.pizarron_contexto || "");
+            setVal('edit_numero_whatsapp', data.whatsapp_number);
+            setVal('edit_enlace_venta', data.sales_link);
+            setSelect('edit_objetivo_cta', data.cta_goal);
+            setSelect('edit_tono_marca', data.tone_voice);
+
+            // Ir a la pestaña
+            switchTab('manage-campaign');
+
+        } catch (e) {
+            alert("Error cargando campaña: " + e.message);
+        }
+    }
+
+    // Helpers
+    function setVal(id, val) { const el = document.getElementById(id); if(el) el.value = val || ''; }
+    function setSelect(id, val) { const el = document.getElementById(id); if(el && val) el.value = val; }
+
+    // BOTÓN ACTUALIZAR
+    const btnUpdate = document.getElementById('btn-update-brain');
+    if (btnUpdate) {
+        btnUpdate.addEventListener('click', async () => {
+            const id = document.getElementById('edit_campaign_id').value;
+            if(!id) return;
+
+            const payload = {
+                id: id,
+                campaign_name: document.getElementById('edit_nombre_campana').value,
+                product_description: document.getElementById('edit_que_vendes').value,
+                target_audience: document.getElementById('edit_a_quien_va_dirigido').value,
+                languages: document.getElementById('edit_idiomas_busqueda').value,
+                ticket_price: document.getElementById('edit_ticket_producto').value,
+                cta_goal: document.getElementById('edit_objetivo_cta').value,
+                competidores: document.getElementById('edit_competidores_principales').value,
+                pain_points_defined: document.getElementById('edit_dolores_pain_points').value,
+                red_flags: document.getElementById('edit_red_flags').value,
+                tone_voice: document.getElementById('edit_tono_marca').value,
+                adn_corporativo: document.getElementById('edit_ai_constitution').value,
+                pizarron_contexto: document.getElementById('edit_ai_blackboard').value,
+                whatsapp_number: document.getElementById('edit_numero_whatsapp').value,
+                sales_link: document.getElementById('edit_enlace_venta').value
+            };
+
+            btnUpdate.innerText = "Guardando...";
+            btnUpdate.disabled = true;
+
+            try {
+                const res = await fetch('/api/actualizar-campana', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if(res.ok) alert("✅ Guardado correctamente.");
+                else alert("❌ Error al guardar.");
+            } catch (e) {
+                alert("Error de red.");
+            } finally {
+                btnUpdate.innerText = "💾 Guardar Cambios";
+                btnUpdate.disabled = false;
+            }
+        });
+    }
+
+    // BOTÓN CREAR (LANZAR)
+    const btnLanzar = document.getElementById('lancam');
+    if (btnLanzar) {
+        btnLanzar.addEventListener('click', async () => {
+            // Recolección de datos del formulario Crear
+            const payload = {
+                nombre: document.getElementById('nombre_campana').value,
+                que_vende: document.getElementById('que_vendes').value,
+                a_quien: document.getElementById('a_quien_va_dirigido').value,
+                idiomas: document.getElementById('idiomas_busqueda').value,
+                ubicacion: document.getElementById('ubicacion_geografica').value,
+                ticket_producto: document.getElementById('ticket_producto').value,
+                objetivo_cta: document.getElementById('objetivo_cta').value,
+                competidores_principales: document.getElementById('competidores_principales').value,
+                dolores_pain_points: document.getElementById('dolores_pain_points').value,
+                red_flags: document.getElementById('red_flags').value,
+                tono_marca: document.getElementById('tono_marca').value,
+                ai_constitution: document.getElementById('ai_constitution') ? document.getElementById('ai_constitution').value : "",
+                ai_blackboard: document.getElementById('ai_blackboard') ? document.getElementById('ai_blackboard').value : "",
+                // Manejo seguro del radio button
+                tipo_producto: document.querySelector('input[name="tipo_producto"]:checked') ? document.querySelector('input[name="tipo_producto"]:checked').value : "tangible",
+                numero_whatsapp: document.getElementById('numero_whatsapp').value,
+                enlace_venta: document.getElementById('enlace_venta').value
+            };
+
+            btnLanzar.innerText = "Lanzando...";
+            btnLanzar.disabled = true;
+
+            try {
+                const res = await fetch('/api/crear-campana', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+
+                if(data.success) {
+                    alert("🚀 ¡Campaña Lanzada!");
+                    document.querySelector('[data-tab="my-campaigns"]').click();
+                    cargarCampanas(); 
+                } else {
+                    alert("Error: " + (data.error || "Desconocido"));
+                }
+            } catch (e) {
+                alert("Error de conexión.");
+            } finally {
+                btnLanzar.innerText = "Lanzar Campaña";
+                btnLanzar.disabled = false;
+            }
+        });
+    }
+
+    // Carga inicial
+    cargarCampanas();
+});
