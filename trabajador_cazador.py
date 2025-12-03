@@ -17,11 +17,11 @@ APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# --- CONFIGURACIÓN DE IA BLINDADA (LITE) ---
+# --- CONFIGURACIÓN DE IA BLINDADA ---
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    # USAMOS EL MODELO LITE PARA QUE NO SALTE EL ERROR 429
-    MODELO_IA = "models/gemini-2.0-flash-lite-preview-02-05"
+    # === CAMBIO CRÍTICO AQUÍ: Usamos 2.5 Flash para evitar bloqueo 429 ===
+    MODELO_IA = "models/gemini-2.5-flash"
 else:
     MODELO_IA = None
 
@@ -90,7 +90,7 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
 
 def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
     """
-    Intenta mejorar la búsqueda con IA. Si la IA falla (Error 429),
+    Intenta mejorar la búsqueda con IA. Si la IA falla,
     devuelve la búsqueda original sin romper el programa.
     """
     if not MODELO_IA or not GOOGLE_API_KEY:
@@ -102,7 +102,7 @@ def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
-        cur.execute("SELECT name, product_name, target_audience, mission_statement FROM campaigns WHERE id = %s", (campana_id,))
+        cur.execute("SELECT campaign_name, product_description, target_audience, cta_goal FROM campaigns WHERE id = %s", (campana_id,))
         row = cur.fetchone()
         cur.close()
 
@@ -113,8 +113,8 @@ def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
         prompt = f"""
         CONTEXTO: Producto: {producto}, Target: {target}, Misión: {mision}, Plataforma: {plataforma}
         INTENCIÓN: "{busqueda_original}"
-        TAREA: Genera UNA frase de búsqueda optimizada para encontrar compradores reales.
-        SOLO RESPONDE LA FRASE.
+        TAREA: Genera UNA frase de búsqueda optimizada para encontrar compradores reales en Google Maps.
+        SOLO RESPONDE LA FRASE. Ej: "Tiendas de zapatos en Madrid"
         """
 
         model = genai.GenerativeModel(MODELO_IA)
@@ -126,7 +126,7 @@ def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
 
     except Exception as e:
         # AQUI ESTA LA PROTECCION: Si la IA falla, NO detenemos el programa.
-        logging.warning(f"⚠️ IA Falló o Cuota Excedida. Usando búsqueda original. Error: {e}")
+        logging.warning(f"⚠️ IA Falló. Usando búsqueda original. Error: {e}")
         return busqueda_original
     finally:
         if conn: conn.close()

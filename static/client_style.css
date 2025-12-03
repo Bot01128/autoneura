@@ -10,16 +10,19 @@ body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFo
 .right-panel { flex-grow: 1; background-color: #f8f9fa; padding: 40px; overflow-y: auto; }
 
 /* INPUTS & SELECTS */
-select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
+select, textarea, input[type="text"], input[type="number"], input[type="tel"], input[type="email"] {
     width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: white; font-size: 14px; font-family: inherit; box-sizing: border-box;
 }
+
+/* AJUSTE CRÍTICO PARA LAS BANDERAS (INTL-TEL-INPUT) */
+.iti { width: 100%; display: block; margin-top: 5px; }
 
 /* CAJAS ESPECIALES */
 .brain-box { background-color: #f8f9fa; padding: 20px; border-left: 5px solid #007bff; margin-top: 20px; border-radius: 5px; }
 .brain-box h3 { color: #0056b3; margin-top: 0; }
 .blackboard-field { border: 2px solid #28a745 !important; background-color: #f0fff4 !important; }
 
-/* --- RESUMEN FINAL (ESTILO LIMPIO - FOTO B) --- */
+/* --- RESUMEN FINAL (ESTILO LIMPIO - BORDE AMARILLO) --- */
 .summary-box {
     background-color: transparent !important;
     border: 3px solid #ffe066;
@@ -36,7 +39,7 @@ select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
 /* =========================================
    BOTONES 3D (ESTILO ÉXITO)
    ========================================= */
-/* Verde */
+/* Verde (Lanzar, Guardar) */
 .cta-button {
     width: 100%; background-color: #28a745; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.3em; font-weight: bold; cursor: pointer; margin-top: 10px; 
     box-shadow: 0 5px 0 #1e7e34; transition: transform 0.1s;
@@ -44,7 +47,7 @@ select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
 .cta-button:active { transform: translateY(4px); box-shadow: 0 1px 0 #1e7e34; }
 .cta-button:disabled { background-color: #adb5bd; box-shadow: none; cursor: not-allowed; }
 
-/* Azul Pequeño */
+/* Azul Pequeño (Recargar, Cerrar Sesión) */
 .recharge-btn { 
     background: #007bff; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: 600; border: none; 
     box-shadow: 0 4px 0 #0056b3; transition: transform 0.1s;
@@ -59,7 +62,7 @@ select, textarea, input[type="text"], input[type="number"], input[type="tel"] {
 .billing-btn-large:active { transform: translateY(4px); box-shadow: 0 1px 0 #0056b3; }
 
 /* =========================================
-   PIPELINE / FLUJO (FOTO 3 ESPECTACULAR)
+   PIPELINE / FLUJO (COLUMNAS DE COLORES)
    ========================================= */
 .flow-container {
     display: flex;

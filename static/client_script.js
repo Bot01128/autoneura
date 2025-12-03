@@ -1,6 +1,27 @@
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("⚡ AutoNeura Frontend 2.0 Cargado - Modo Inteligente Activo");
 
+    // =========================================================
+    // 0. INICIALIZAR BANDERAS DE PAÍSES (REPARACIÓN VISUAL)
+    // =========================================================
+    const phoneInputOptions = {
+        initialCountry: "auto",
+        geoIpLookup: function(callback) {
+            fetch('https://ipapi.co/json')
+                .then(function(res) { return res.json(); })
+                .then(function(data) { callback(data.country_code); })
+                .catch(function() { callback("us"); });
+        },
+        utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
+    };
+
+    const inputCreate = document.querySelector("#numero_whatsapp");
+    if(inputCreate) window.intlTelInput(inputCreate, phoneInputOptions);
+
+    const inputEdit = document.querySelector("#edit_numero_whatsapp");
+    if(inputEdit) window.intlTelInput(inputEdit, phoneInputOptions);
+
+
     // Variable Global para controlar qué IA responde (Vendedora o Analista)
     let currentChatMode = 'analista'; // Por defecto
 

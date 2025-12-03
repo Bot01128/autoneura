@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='mis_cliente.css') }}">
+    <style>
+        /* Ajuste para que la bandera y el código se vean bien */
+        .iti { width: 100%; display: block; margin-top: 5px; }
+        /* Estilo visual para campos obligatorios vacíos (borde rojo suave) */
+        input:invalid, textarea:invalid { border-color: #dc3545; }
+    </style>
 </head>
 <body>
     <div class="top-bar">
@@ -24,7 +30,7 @@
                     <p class="msg-assistant">{{ _("¡Hola! Soy la Inteligencia Artificial AutoNeura. Estoy conectada a tus datos. Pregúntame sobre tus ingresos, clientes o campañas.") }}</p>
                 </div>
                 <form id="chat-form" class="chat-input">
-                    <input type="text" id="user-input" placeholder="{{ _('Ej: ¿Cuánto facturé este mes?') }}">
+                    <input type="text" id="user-input" placeholder="{{ _('Escribe tu pregunta...') }}">
                     <button id="send-btn" type="submit">{{ _('Enviar') }}</button>
                 </form>
             </div>
@@ -66,13 +72,14 @@
 
                 <div class="form-section">
                     <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
-                    <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
-                    <input type="text" id="edit_que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;">
-                    <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;">
-                    <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;">
+                    <!-- CAMPOS OBLIGATORIOS (REQUIRED) -->
+                    <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}" required>
+                    <input type="text" id="edit_que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;" required>
+                    <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;" required>
+                    <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;" required>
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                        <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio') }}">
+                        <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio') }}" required>
                         <select id="edit_objetivo_cta">
                             <option value="vender_directo">{{ _('Vender directo') }}</option>
                             <option value="agendar_llamada">{{ _('Agendar llamada') }}</option>
@@ -80,7 +87,7 @@
                             <option value="solo_saludar">{{ _('Solo saludar') }}</option>
                         </select>
                     </div>
-                    <input type="text" id="edit_competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;">
+                    <input type="text" id="edit_competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;" required>
                     <textarea id="edit_dolores_pain_points" rows="2" placeholder="{{ _('Dolores') }}" style="margin-top:10px;"></textarea>
                     <textarea id="edit_red_flags" rows="2" placeholder="{{ _('Red Flags') }}" style="margin-top:10px;"></textarea>
                     <select id="edit_tono_marca" style="margin-top:10px;">
@@ -121,14 +128,15 @@
                 
                 <div class="form-section">
                     <label>{{ _('Datos de la Estrategia') }}</label>
-                    <input type="text" id="nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}" style="margin-top:10px;">
-                    <input type="text" id="que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;">
-                    <input type="text" id="a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;">
-                    <input type="text" id="idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;">
+                    <!-- CAMPOS OBLIGATORIOS (REQUIRED) -->
+                    <input type="text" id="nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}" style="margin-top:10px;" required>
+                    <input type="text" id="que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;" required>
+                    <input type="text" id="a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;" required>
+                    <input type="text" id="idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;" required>
                     <input type="text" id="ubicacion_geografica" placeholder="{{ _('Ubicación Geográfica') }}" style="margin-top:10px;">
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                        <input type="text" id="ticket_producto" placeholder="{{ _('Ticket Promedio') }}">
+                        <input type="text" id="ticket_producto" placeholder="{{ _('Ticket Promedio') }}" required>
                         <select id="objetivo_cta">
                             <option value="vender_directo">{{ _('Vender directo') }}</option>
                             <option value="agendar_llamada">{{ _('Agendar llamada') }}</option>
@@ -137,7 +145,7 @@
                         </select>
                     </div>
                     
-                    <input type="text" id="competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;">
+                    <input type="text" id="competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;" required>
                     <textarea id="dolores_pain_points" rows="3" placeholder="{{ _('Dolores') }}" style="margin-top:10px;"></textarea>
                     <select id="tono_marca" style="margin-top:10px;">
                         <option value="corporativo">{{ _('Corporativo') }}</option>
