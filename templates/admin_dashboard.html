@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centro de Comando - AutoNeura</title>
-    <!-- Estilos oscuros profesionales -->
     <link rel="stylesheet" href="{{ url_for('static', filename='client_style.css') }}">
     <style>
+        /* Estilos Oscuros Admin */
         body { background-color: #121212; color: #e0e0e0; }
-        .top-bar { background-color: #1e1e1e; border-bottom: 1px solid #333; }
-        .left-panel { background-color: #181818; border-right: 1px solid #333; }
+        .top-bar { background-color: #1e1e1e; border-bottom: 1px solid #333; color:white; }
+        .left-panel { background-color: #181818; border-right: 1px solid #333; color:white; }
         .right-panel { background-color: #121212; }
         
         .kpi-card { background-color: #1e1e1e; border: 1px solid #333; }
@@ -19,16 +19,12 @@
         .tab-nav button { color: #888; }
         .tab-nav button.active { color: #fff; border-bottom-color: #007bff; }
         
-        /* Tablas Oscuras */
         .campaign-table { background-color: #1e1e1e; color: #ddd; }
         .campaign-table th { background-color: #252525; color: #fff; border-bottom: 2px solid #444; }
         .campaign-table td { border-bottom: 1px solid #333; }
-        .campaign-table tr:hover { background-color: #2a2a2a; }
+        .campaign-table tbody tr:hover { background-color: #2a2a2a; }
 
         /* Finanzas */
-        .finance-positive { color: #4caf50; font-weight: bold; }
-        .finance-negative { color: #f44336; font-weight: bold; }
-        
         .gasto-form { background: #252525; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #444; }
         input, select { background-color: #333; border: 1px solid #555; color: white; }
     </style>
@@ -42,12 +38,11 @@
         </div>
     </div>
     <div class="container">
-        <!-- CHAT LATERAL -->
         <div class="left-panel">
             <div class="chat-header"><h2>Asistente CEO</h2></div>
             <div class="chat-window">
                 <div class="chat-messages" id="chat-messages">
-                    <p class="msg-assistant">Sistema Operativo. Conectado a la Base de Datos Maestra. ¿Qué deseas consultar hoy?</p>
+                    <p class="msg-assistant">Sistema Operativo. Conectado a la Base de Datos Maestra.</p>
                 </div>
                 <form id="chat-form" class="chat-input">
                     <input type="text" id="user-input" placeholder="Consulta SQL...">
@@ -191,7 +186,7 @@
                     const res = await fetch('/api/admin/finanzas');
                     const data = await res.json();
                     
-                    document.getElementById('total-neto').innerText = `$${data.total_neto.toFixed(2)}`;
+                    document.getElementById('total-neto').innerText = `$${data.balance.toFixed(2)}`;
                     
                     const tbody = document.getElementById('tabla-finanzas');
                     tbody.innerHTML = '';
@@ -237,8 +232,7 @@
                     if(!text) return;
 
                     const userMsg = document.createElement('p');
-                    userMsg.className = 'msg-user';
-                    userMsg.innerText = text;
+                    userMsg.className = 'msg-user'; userMsg.innerText = text;
                     chatMessages.appendChild(userMsg);
                     finalInput.value = '';
 
@@ -248,7 +242,7 @@
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({message: text})
                         });
-                        const data = await res.json();
+                        const data = await response.json();
                         const botMsg = document.createElement('p');
                         botMsg.className = 'msg-assistant';
                         botMsg.innerHTML = data.response.replace(/\n/g, '<br>');
