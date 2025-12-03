@@ -12,6 +12,8 @@
         /* Ajuste para que la bandera no se monte encima del texto */
         .iti { width: 100%; display: block; margin-top: 10px; }
         .hidden-tab { display: none !important; }
+        /* Estilo para ocultar el panel de edición dentro de Mis Campañas */
+        #edit-panel-container { display: none; margin-top: 30px; border-top: 2px dashed #ccc; padding-top: 20px; }
     </style>
 </head>
 <body>
@@ -44,8 +46,8 @@
                 <button class="tab-button" data-tab="billing">{{ _('Facturación') }}</button>
                 
                 <!-- Pestañas Avanzadas (Se ocultan si no hay campañas) -->
+                <!-- NOTA: Ya no existe la pestaña "Gestionar Campaña" separada -->
                 <button class="tab-button advanced-feature" data-tab="my-campaigns">{{ _('Mis Campañas') }}</button>
-                <button class="tab-button advanced-feature" data-tab="manage-campaign" id="btn-manage-campaign">{{ _('Gestionar Campaña') }}</button>
                 <button class="tab-button advanced-feature" data-tab="prospect-flow">{{ _('Flujo de Prospectos') }}</button>
                 <button class="tab-button advanced-feature" data-tab="conversations">{{ _('Conversaciones') }}</button>
             </div>
@@ -125,82 +127,85 @@
                 </div>
             </div>
 
-            <!-- 2. MIS CAMPAÑAS -->
+            <!-- 2. MIS CAMPAÑAS (AHORA INCLUYE GESTIÓN INTEGRADA) -->
             <div class="tab-content" id="my-campaigns" style="display: none;">
-                <div class="kpi-container">
-                    <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
-                    <div class="kpi-card"><span class="kpi-title">Leads Calificados</span><span class="kpi-value" id="kpi-leads">0</span></div>
-                    <div class="kpi-card"><span class="kpi-title">Tasa de Conversión</span><span class="kpi-value rate-success" id="kpi-rate">0%</span></div>
-                </div>
-                <h2>{{ _('Mis Campañas Activas y Pasadas') }}</h2>
-                <table class="campaign-table">
-                    <thead>
-                        <tr><th>{{ _('Nombre') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th><th>{{ _('Encontrados') }}</th><th>{{ _('Acción') }}</th></tr>
-                    </thead>
-                    <tbody id="campaigns-table-body"></tbody>
-                </table>
-            </div>
-
-            <!-- 3. GESTIONAR CAMPAÑA -->
-            <div class="tab-content" id="manage-campaign" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 25px;">
-                    <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
-                </div>
-                <input type="hidden" id="edit_campaign_id">
-
-                <div class="form-section">
-                    <label>{{ _('1. Plan Actual (Solo Lectura)') }}</label>
-                    <div class="plans-container">
-                        <div class="plan-card plan-disabled" id="edit_plan_arrancador"><h4>{{ _('El Arrancador') }}</h4><small>4/día</small></div>
-                        <div class="plan-card plan-disabled" id="edit_plan_profesional"><h4>{{ _('El Profesional') }}</h4><small>15/día</small></div>
-                        <div class="plan-card plan-disabled" id="edit_plan_dominador"><h4>{{ _('El Dominador') }}</h4><small>50/día</small></div>
+                <!-- SECCIÓN SUPERIOR: KPIS Y TABLA -->
+                <div id="campaigns-list-view">
+                    <div class="kpi-container">
+                        <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-total">0</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Leads Calificados</span><span class="kpi-value" id="kpi-leads">0</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Tasa de Conversión</span><span class="kpi-value rate-success" id="kpi-rate">0%</span></div>
                     </div>
+                    <h2>{{ _('Mis Campañas Activas y Pasadas') }}</h2>
+                    <table class="campaign-table">
+                        <thead>
+                            <tr><th>{{ _('Nombre') }}</th><th>{{ _('Fecha') }}</th><th>{{ _('Estado') }}</th><th>{{ _('Encontrados') }}</th><th>{{ _('Acción') }}</th></tr>
+                        </thead>
+                        <tbody id="campaigns-table-body"></tbody>
+                    </table>
                 </div>
 
-                <div class="form-section">
-                    <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
-                    <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
-                    <input type="text" id="edit_que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;">
-                    <!-- Resto de campos gestionados por JS -->
-                    <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;">
-                    <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                        <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio') }}">
-                        <select id="edit_objetivo_cta">
-                            <option value="vender_directo">Venta Directa</option>
-                            <option value="agendar_llamada">Agendar Llamada</option>
-                            <option value="whatsapp">Chat WhatsApp</option>
+                <!-- SECCIÓN INFERIOR: GESTIONAR CAMPAÑA (OCULTO POR DEFECTO) -->
+                <div id="edit-panel-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                        <h2 style="margin:0; color: #007bff;">⚙️ Editando: <span id="manage-campaign-title" style="color: #333;">...</span></h2>
+                        <button class="recharge-btn" style="background-color: #dc3545;" onclick="cerrarEdicion()">✖ Cerrar Edición</button>
+                    </div>
+                    <input type="hidden" id="edit_campaign_id">
+
+                    <div class="form-section">
+                        <label>{{ _('1. Plan Actual (Solo Lectura)') }}</label>
+                        <div class="plans-container">
+                            <div class="plan-card plan-disabled" id="edit_plan_arrancador"><h4>{{ _('El Arrancador') }}</h4><small>4/día</small></div>
+                            <div class="plan-card plan-disabled" id="edit_plan_profesional"><h4>{{ _('El Profesional') }}</h4><small>15/día</small></div>
+                            <div class="plan-card plan-disabled" id="edit_plan_dominador"><h4>{{ _('El Dominador') }}</h4><small>50/día</small></div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <label>{{ _('3. Estrategia de Mercado (Edición)') }}</label>
+                        <input type="text" id="edit_nombre_campana" placeholder="{{ _('Nombre de la Campaña') }}">
+                        <input type="text" id="edit_que_vendes" placeholder="{{ _('¿Qué vendes?') }}" style="margin-top:10px;">
+                        <input type="text" id="edit_a_quien_va_dirigido" placeholder="{{ _('¿A quién va dirigido?') }}" style="margin-top:10px;">
+                        <input type="text" id="edit_idiomas_busqueda" placeholder="{{ _('Idiomas') }}" style="margin-top:10px;">
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <input type="text" id="edit_ticket_producto" placeholder="{{ _('Ticket Promedio') }}">
+                            <select id="edit_objetivo_cta">
+                                <option value="vender_directo">Venta Directa</option>
+                                <option value="agendar_llamada">Agendar Llamada</option>
+                                <option value="whatsapp">Chat WhatsApp</option>
+                            </select>
+                        </div>
+                        <input type="text" id="edit_competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;">
+                        <textarea id="edit_dolores_pain_points" rows="2" placeholder="{{ _('Dolores') }}" style="margin-top:10px;"></textarea>
+                        <textarea id="edit_red_flags" rows="2" placeholder="{{ _('Red Flags') }}" style="margin-top:10px;"></textarea>
+                        <select id="edit_tono_marca" style="margin-top:10px;">
+                            <option value="corporativo">Corporativo</option>
+                            <option value="amigable">Amigable</option>
+                            <option value="agresivo">Agresivo</option>
                         </select>
                     </div>
-                    <input type="text" id="edit_competidores_principales" placeholder="{{ _('Competidores') }}" style="margin-top:10px;">
-                    <textarea id="edit_dolores_pain_points" rows="2" placeholder="{{ _('Dolores') }}" style="margin-top:10px;"></textarea>
-                    <textarea id="edit_red_flags" rows="2" placeholder="{{ _('Red Flags') }}" style="margin-top:10px;"></textarea>
-                    <select id="edit_tono_marca" style="margin-top:10px;">
-                        <option value="corporativo">Corporativo</option>
-                        <option value="amigable">Amigable</option>
-                        <option value="agresivo">Agresivo</option>
-                    </select>
-                </div>
 
-                <div class="form-section brain-box">
-                    <h3>🧠 {{ _('Modificar Cerebro de la IA') }}</h3>
-                    <label>🧬 {{ _('ADN Corporativo') }}</label>
-                    <textarea id="edit_ai_constitution" rows="6"></textarea>
-                    <label style="margin-top: 15px;">⚡ {{ _('Pizarrón Táctico') }}</label>
-                    <textarea id="edit_ai_blackboard" class="blackboard-field" rows="4"></textarea>
-                </div>
+                    <div class="form-section brain-box">
+                        <h3>🧠 {{ _('Modificar Cerebro de la IA') }}</h3>
+                        <label>🧬 {{ _('ADN Corporativo') }}</label>
+                        <textarea id="edit_ai_constitution" rows="6"></textarea>
+                        <label style="margin-top: 15px;">⚡ {{ _('Pizarrón Táctico') }}</label>
+                        <textarea id="edit_ai_blackboard" class="blackboard-field" rows="4"></textarea>
+                    </div>
 
-                <div class="form-section">
-                    <label>{{ _('5. Datos de Contacto') }}</label>
-                    <!-- AQUÍ TAMBIÉN VA EL CAMPO CON BANDERAS PARA EDICIÓN -->
-                    <input type="tel" id="edit_numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
-                    <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
-                </div>
+                    <div class="form-section">
+                        <label>{{ _('5. Datos de Contacto') }}</label>
+                        <input type="tel" id="edit_numero_whatsapp" placeholder="WhatsApp" style="margin-top:10px;">
+                        <input type="text" id="edit_enlace_venta" placeholder="Enlace de Venta" style="margin-top:10px;">
+                    </div>
 
-                <div id="action-buttons-container" style="margin-top: 30px;">
-                    <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); box-shadow: 0 5px 0 #0056b3;">
-                        💾 {{ _('Guardar Cambios') }}
-                    </button>
+                    <div id="action-buttons-container" style="margin-top: 30px;">
+                        <button id="btn-update-brain" class="cta-button" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); box-shadow: 0 5px 0 #0056b3;">
+                            💾 {{ _('Guardar Cambios') }}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -247,9 +252,35 @@
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="{{ url_for('static', filename='client_script.js') }}"></script>
    
-   <!-- === SCRIPT CEREBRO DEL CHAT LATERAL === -->
+   <!-- === SCRIPT CEREBRO DEL CHAT LATERAL Y BANDERAS === -->
    <script>
+       // Función para cerrar la edición y volver a ver la tabla
+       function cerrarEdicion() {
+           document.getElementById('edit-panel-container').style.display = 'none';
+           document.getElementById('campaigns-list-view').style.display = 'block';
+           window.scrollTo(0, 0); // Subir al inicio
+       }
+
        document.addEventListener('DOMContentLoaded', () => {
+           // FORZAR BANDERAS
+           var inputOps = {
+               initialCountry: "auto",
+               separateDialCode: true,
+               geoIpLookup: function(callback) {
+                   fetch('https://ipapi.co/json')
+                       .then(function(res) { return res.json(); })
+                       .then(function(data) { callback(data.country_code); })
+                       .catch(function() { callback("ve"); });
+               },
+               utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
+           };
+           var inputCrear = document.querySelector("#numero_whatsapp");
+           if (inputCrear) window.intlTelInput(inputCrear, inputOps);
+           
+           var inputEditar = document.querySelector("#edit_numero_whatsapp");
+           if (inputEditar) window.intlTelInput(inputEditar, inputOps);
+
+           // CHAT LATERAL
            setTimeout(() => {
                const chatForm = document.getElementById('chat-form');
                const userInput = document.getElementById('user-input');
