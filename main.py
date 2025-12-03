@@ -716,6 +716,87 @@ def admin_monitor():
                     clientes.forEach(google_ai": ia_status,
         "apify": "OK" # Asumimos OK si hay token, luego podemos refinar
     })
+    # ==========================================
+# RUTAS NUEVAS PARA EL PANEL ADMIN (FINANZAS Y MONITOR)
+# ==========================================
+
+# 1. OBTENER HISTORIAL FINANCIERO
+@app.route('/api/admin/finanzas', methods=['GET'])
+def admin_get_finanzas():
+    conn = get_db_connection()
+    if not conn: return jsonify([]), 500
+    try:
+        cur = conn.cursor()
+        # Traemos los últimos 50 movimientos
+        cur.execute("""
+            SELECT created_at, movement_type, category, description, amount_gross, amount_net 
+            FROM finance_logs 
+            ORDER BY created_at DESC LIMIT 50
+        """)
+        rows = cur.fetchall()
+        
+        # Calculamos el Balance Total (Ganancia Neta)
+        cur.execute("SELECT SUM(amount_net) FROM finance_logs")
+        res_total = cur.fetchone()
+        balance = res_total[0] if res_total and res_total[0] else 0.00
+        
+        historial = []
+        for r in rows:
+            historial.append({
+                "fecha": r[0].strftime('%Y-%m-%d %H:%M') if r[0] else "-",
+                "tipo": r[1],
+                "categoria": r[2],
+                "desc": r[3] or "-",
+                "bruto": float(r[4]),
+                "neto": float(r[5])
+            })
+            
+        return jsonify({"balance": float(balance), "historial": historial})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+# 2. REGISTRAR GASTO MANUAL (Tú registras lo que pagas)
+@app.route('/api/admin/registrar-gasto', methods=['POST'])
+def admin_registrar_gasto():
+    d = request.json
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        # Un gasto es negativo para el neto. 
+        monto = float(d.get('monto'))
+        monto_neto = monto * -1  
+        
+        cur.execute("""
+            INSERT INTO finance_logs (movement_type, category, description, amount_gross, amount_net)
+            VALUES ('GASTO', %s, %s, %s, %s)
+        """, ('Operativo', d.get('concepto'), d.get('monto'), monto_neto))
+        
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+# 3. MONITOR DE SISTEMA (Estado de las APIs)
+@app.route('/api/admin/monitor', methods=['GET'])
+def admin_monitor():
+    # Verificamos DB
+    db_status = "🟢 Online" if get_db_connection() else "🔴 Error Conexión"
+    
+    # Verificamos Google IA
+    ia_status = "🟢 Activo" if GOOGLE_API_KEY else "🔴 Falta Key"
+    
+    # Verificamos Apify
+    apify_status = "🟢 Activo" if os.environ.get('APIFY_TOKEN') else "🔴 Falta Token"
+    
+    return jsonify({
+        "database": db_status,
+        "google_ai": ia_status,
+        "apify": apify_status
+    })
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
