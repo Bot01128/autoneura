@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log("🚀 Mis Clientes (Admin) Cargado");
 
     // =========================================================
-    // 1. CONFIGURACIÓN DE BANDERAS (International Phone Input)
+    // 1. CONFIGURACIÓN DE BANDERAS (International Phone Input) 
     // =========================================================
     const phoneInputOptions = {
         initialCountry: "auto",
