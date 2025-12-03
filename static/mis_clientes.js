@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log("🚀 Mis Clientes (Admin) Cargado");
+    console.log("🚀 Mis Clientes (Admin) Cargado - Vista Unificada");
 
     // =========================================================
     // 1. CONFIGURACIÓN DE BANDERAS (International Phone Input)
     // =========================================================
     const phoneInputOptions = {
         initialCountry: "auto",
-        separateDialCode: true, // <--- ESTO MUESTRA EL +58 AL LADO DE LA BANDERA
+        separateDialCode: true,
         geoIpLookup: function(callback) {
             fetch('https://ipapi.co/json')
                 .then(function(res) { return res.json(); })
@@ -16,17 +16,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
     };
 
-    // Aplicar a "Crear Campaña"
     const inputCreate = document.querySelector("#numero_whatsapp");
     if(inputCreate) window.intlTelInput(inputCreate, phoneInputOptions);
 
-    // Aplicar a "Gestionar Campaña"
     const inputEdit = document.querySelector("#edit_numero_whatsapp");
     if(inputEdit) window.intlTelInput(inputEdit, phoneInputOptions);
 
 
     // =========================================================
-    // 2. LÓGICA DE PESTAÑAS
+    // 2. LÓGICA DE PESTAÑAS (Menos pestañas ahora)
     // =========================================================
     const tabs = document.querySelectorAll('.tab-button');
     const contents = document.querySelectorAll('.tab-content');
@@ -45,62 +43,26 @@ document.addEventListener('DOMContentLoaded', async function() {
     tabs.forEach(button => {
         button.addEventListener('click', () => {
             const target = button.getAttribute('data-tab');
-            switchTab(target);
-            if (target === 'my-campaigns') cargarCampanas(); 
+            if (target === 'manage-campaign') {
+                // Si por alguna razón quedara un botón viejo apuntando aquí
+                switchTab('my-campaigns');
+            } else {
+                switchTab(target);
+            }
+            if (target === 'my-campaigns') {
+                cargarCampanas();
+                if(typeof cerrarEdicion === 'function') cerrarEdicion();
+            }
         });
     });
 
     // =========================================================
-    // 3. LÓGICA DEL CHATBOT (CEREBRO ARQUITECTO - ADMIN)
+    // 3. CHATBOT (Se gestiona en el script incrustado en HTML)
     // =========================================================
-    const chatForm = document.getElementById('chat-form');
-    const userInput = document.getElementById('user-input');
-    const chatMessages = document.getElementById('chat-messages');
-
-    if (chatForm) {
-        const newChatForm = chatForm.cloneNode(true);
-        chatForm.parentNode.replaceChild(newChatForm, chatForm);
-        
-        const finalChatForm = document.getElementById('chat-form');
-        const finalInput = document.getElementById('user-input');
-
-        finalChatForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Evita el pestañeo
-            
-            const text = finalInput.value.trim();
-            if (!text) return;
-
-            // Mensaje Usuario
-            const userMsgDiv = document.createElement('p');
-            userMsgDiv.className = 'msg-user';
-            userMsgDiv.textContent = text;
-            chatMessages.appendChild(userMsgDiv);
-            finalInput.value = '';
-
-            // Loading
-            const loadingDiv = document.createElement('p');
-            loadingDiv.className = 'msg-assistant';
-            loadingDiv.textContent = 'Analizando datos...';
-            chatMessages.appendChild(loadingDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            try {
-                const response = await fetch('/api/chat-arquitecto', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
-                });
-                const data = await response.json();
-                loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
-            } catch (error) {
-                loadingDiv.textContent = "Error de conexión.";
-            }
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        });
-    }
+    // Dejamos este bloque limpio o para funciones auxiliares
 
     // =========================================================
-    // 4. GESTIÓN DE CAMPAÑAS (CRUD)
+    // 4. GESTIÓN DE CAMPAÑAS (CRUD - VISTA UNIFICADA)
     // =========================================================
     
     // CARGAR CAMPAÑAS
@@ -123,8 +85,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             } else {
                 data.forEach(camp => {
                     totalProspectos += (camp.prospects_count || 0);
-                    // totalLeads += (camp.leads_count || 0); // Si tienes leads count
-
+                    
                     const tr = document.createElement('tr');
                     const estadoHtml = camp.status === 'active' 
                         ? '<span style="color:green; font-weight:bold;">● Activa</span>' 
@@ -147,15 +108,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 });
             }
 
-            // Actualizar KPIs visuales
             const kpiTotal = document.getElementById('kpi-total');
             if(kpiTotal) kpiTotal.innerText = totalProspectos;
 
-            // Listeners para botones "Ver"
             document.querySelectorAll('.btn-gestionar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const id = e.target.getAttribute('data-id');
-                    abrirPestanaGemela(id);
+                    abrirEdicionEnMismaPagina(id); // <--- NUEVA FUNCIÓN
                 });
             });
 
@@ -165,19 +124,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // ABRIR EDICIÓN (Cargar datos en el formulario)
-    async function abrirPestanaGemela(id) {
+    // ABRIR EDICIÓN (DESPLAZA HACIA ABAJO)
+    async function abrirEdicionEnMismaPagina(id) {
         try {
             const res = await fetch(`/api/campana/${id}`);
             if (!res.ok) throw new Error("Fallo API");
             const data = await res.json();
 
-            // Llenar campos
-            const title = document.getElementById('manage-campaign-title');
-            if(title) title.innerText = data.campaign_name;
-            
-            const hiddenId = document.getElementById('edit_campaign_id');
-            if(hiddenId) hiddenId.value = data.id;
+            document.getElementById('manage-campaign-title').innerText = data.campaign_name;
+            document.getElementById('edit_campaign_id').value = data.id;
 
             setVal('edit_nombre_campana', data.campaign_name);
             setVal('edit_que_vendes', data.product_description);
@@ -190,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             setVal('edit_ai_constitution', data.adn_corporativo || ""); 
             setVal('edit_ai_blackboard', data.pizarron_contexto || "");
             
-            // Cargar WhatsApp en el plugin de banderas
+            // Cargar WhatsApp
             const inputEdit = document.querySelector("#edit_numero_whatsapp");
             if(inputEdit && window.intlTelInputGlobals) {
                 const iti = window.intlTelInputGlobals.getInstance(inputEdit);
@@ -203,8 +158,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             setSelect('edit_objetivo_cta', data.cta_goal);
             setSelect('edit_tono_marca', data.tone_voice);
 
-            // Ir a la pestaña
-            switchTab('manage-campaign');
+            // CAMBIO DE VISTA: Ocultar tabla, mostrar form
+            document.getElementById('campaigns-list-view').style.display = 'none';
+            document.getElementById('edit-panel-container').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (e) {
             alert("Error cargando campaña: " + e.message);
@@ -222,11 +179,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             const id = document.getElementById('edit_campaign_id').value;
             if(!id) return;
 
-            // VALIDACIÓN DE CAMPOS OBLIGATORIOS
+            // Validación
             const requiredIds = ['edit_nombre_campana', 'edit_que_vendes', 'edit_a_quien_va_dirigido', 'edit_idiomas_busqueda', 'edit_ticket_producto', 'edit_competidores_principales'];
             for(let reqId of requiredIds) {
                 if(!document.getElementById(reqId).value.trim()) {
-                    alert("⚠️ Faltan campos obligatorios. Por favor completa la estrategia.");
+                    alert("⚠️ Faltan campos obligatorios.");
                     return;
                 }
             }
@@ -245,7 +202,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 tone_voice: document.getElementById('edit_tono_marca').value,
                 adn_corporativo: document.getElementById('edit_ai_constitution').value,
                 pizarron_contexto: document.getElementById('edit_ai_blackboard').value,
-                // Obtener número completo con código de país (+58...)
                 whatsapp_number: document.querySelector("#edit_numero_whatsapp").nextElementSibling.classList.contains("iti") 
                     ? window.intlTelInputGlobals.getInstance(document.querySelector("#edit_numero_whatsapp")).getNumber()
                     : document.getElementById('edit_numero_whatsapp').value,
@@ -262,8 +218,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                     body: JSON.stringify(payload)
                 });
 
-                if(res.ok) alert("✅ Guardado correctamente.");
-                else alert("❌ Error al guardar.");
+                if(res.ok) {
+                    alert("✅ Guardado.");
+                    // VOLVER A LA LISTA
+                    if(typeof cerrarEdicion === 'function') cerrarEdicion();
+                    cargarCampanas();
+                } else {
+                    alert("❌ Error al guardar.");
+                }
             } catch (e) {
                 alert("Error de red.");
             } finally {
@@ -273,20 +235,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // BOTÓN CREAR (LANZAR)
+    // BOTÓN CREAR
     const btnLanzar = document.getElementById('lancam');
     if (btnLanzar) {
         btnLanzar.addEventListener('click', async () => {
-            // VALIDACIÓN DE CAMPOS OBLIGATORIOS
+            // Validación
             const requiredIds = ['nombre_campana', 'que_vendes', 'a_quien_va_dirigido', 'idiomas_busqueda', 'ticket_producto', 'competidores_principales'];
             for(let reqId of requiredIds) {
                 if(!document.getElementById(reqId).value.trim()) {
-                    alert("⚠️ Por favor completa los campos obligatorios para que la IA funcione bien.");
+                    alert("⚠️ Por favor completa los campos obligatorios.");
                     return;
                 }
             }
 
-            // Recolección de datos del formulario Crear
             const payload = {
                 nombre: document.getElementById('nombre_campana').value,
                 que_vende: document.getElementById('que_vendes').value,
@@ -301,9 +262,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 tono_marca: document.getElementById('tono_marca').value,
                 ai_constitution: document.getElementById('ai_constitution') ? document.getElementById('ai_constitution').value : "",
                 ai_blackboard: document.getElementById('ai_blackboard') ? document.getElementById('ai_blackboard').value : "",
-                // Manejo seguro del radio button
                 tipo_producto: document.querySelector('input[name="tipo_producto"]:checked') ? document.querySelector('input[name="tipo_producto"]:checked').value : "tangible",
-                // Obtener número completo con código de país (+58...)
                 numero_whatsapp: document.querySelector("#numero_whatsapp").nextElementSibling.classList.contains("iti") 
                     ? window.intlTelInputGlobals.getInstance(document.querySelector("#numero_whatsapp")).getNumber()
                     : document.getElementById('numero_whatsapp').value,
@@ -338,6 +297,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // Iniciar carga al abrir la página
+    // Iniciar carga
     cargarCampanas();
 });
