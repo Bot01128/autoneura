@@ -4,14 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Arquitecto - AutoNeura</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='admin_style.css') }}">
+    <!-- Reutilizamos el CSS del cliente porque es bonito y consistente -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_style.css') }}">
+    <style>
+        /* Estilos específicos para Admin */
+        body { background-color: #1a1a1a; color: #e0e0e0; } /* Modo Oscuro Hacker */
+        .top-bar { background-color: #2d2d2d; border-bottom: 1px solid #444; color: white; }
+        .left-panel { background-color: #252525; border-right: 1px solid #444; color: white; }
+        .right-panel { background-color: #1a1a1a; }
+        
+        .kpi-card { background-color: #333; border: 1px solid #555; }
+        .kpi-title { color: #aaa; }
+        .kpi-value { color: #4caf50; } /* Verde Matrix */
+        
+        .campaign-table { background-color: #2d2d2d; color: white; border: none; }
+        .campaign-table th { background-color: #333; border-bottom: 2px solid #555; color: #aaa; }
+        .campaign-table td { border-bottom: 1px solid #444; }
+        .campaign-table tbody tr:hover { background-color: #383838; }
+        
+        .chat-messages { background-color: #2d2d2d; }
+        .msg-assistant { background-color: #333; color: white; }
+        .msg-user { background-color: #007bff; }
+        input[type="text"] { background-color: #333; color: white; border: 1px solid #555; }
+    </style>
 </head>
 <body>
     <div class="top-bar">
         <div class="logo"><h2>AutoNeura <strong>[Modo Arquitecto]</strong></h2></div>
         <div class="user-info">
             <span>Bienvenido, Arquitecto</span>
-            <button id="logout-btn" class="logout-btn">Cerrar Sesión</button>
+            <button id="logout-btn" class="recharge-btn" style="background-color: #d32f2f;">Cerrar Sesión</button>
         </div>
     </div>
     <div class="container">
@@ -21,15 +43,10 @@
             </div>
             <div class="chat-window">
                 <div class="chat-messages" id="chat-messages">
-                    <p class="msg-assistant">Sistema AutoNeura operativo. Estoy conectado a la Base de Datos.
-                        <br><br>
-                        Pruébame:
-                        <br>- "¿Cuánto gané este mes?"
-                        <br>- "¿Cuántos clientes tienen plan Básico?"
-                    </p>
+                    <p class="msg-assistant">Sistema Operativo. Conectado a la Base de Datos Maestra. ¿Qué deseas consultar hoy?</p>
                 </div>
                 <form id="chat-form" class="chat-input">
-                    <input type="text" id="user-input" placeholder="Consulta métricas globales...">
+                    <input type="text" id="user-input" placeholder="Ej: Ingresos de este mes...">
                     <button id="send-btn" type="submit">Ejecutar</button>
                 </form>
             </div>
@@ -38,125 +55,136 @@
             <div class="tab-nav">
                 <button class="tab-button active" data-tab="dashboard-global">Dashboard Global</button>
                 <button class="tab-button" data-tab="clientes">Clientes</button>
-                <button class="tab-button" data-tab="campanas-todas">Campañas (Todas)</button>
-                <button class="tab-button" data-tab="crear-campana">Crear Campaña</button>
-                <button class="tab-button" data-tab="supervisar-flujos">Supervisar Flujos</button>
-                <button class="tab-button" data-tab="supervisar-conversaciones">Supervisar Conversaciones</button>
+                <button class="tab-button" data-tab="campanas-todas">Todas las Campañas</button>
             </div>
 
+            <!-- 1. DASHBOARD GLOBAL (REAL) -->
             <div class="tab-content" id="dashboard-global" style="display: block;">
                 <h2>Resumen del Imperio</h2>
-                <!-- Aquí irían gráficos reales -->
-                <p>Gráficos de crecimiento de clientes, ingresos y campañas más rentables (En Construcción).</p>
+                <div class="kpi-container">
+                    <div class="kpi-card">
+                        <span class="kpi-title">💰 MRR (Mensual)</span>
+                        <span class="kpi-value" id="kpi-mrr">$0.00</span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">👥 Total Clientes</span>
+                        <span class="kpi-value" id="kpi-clientes">0</span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">🌎 Data (Prospectos)</span>
+                        <span class="kpi-value" id="kpi-data">0</span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">⚡ Campañas Activas</span>
+                        <span class="kpi-value" id="kpi-activas">0</span>
+                    </div>
+                </div>
             </div>
 
+            <!-- 2. CLIENTES (REAL) -->
             <div class="tab-content" id="clientes" style="display: none;">
                 <h2>Gestión de Clientes</h2>
-                <table class="admin-table">
-                    <thead><tr><th>Nombre del Cliente</th><th>Email</th><th>Plan</th><th>Estado</th><th>Acciones</th></tr></thead>
-                    <tbody>
-                        <tr><td>Ferretería El Tornillo Feliz</td><td>cliente1@email.com</td><td>Intermedio</td><td class="status-active">Activo</td><td><button>Ver</button></td></tr>
-                        <tr><td>Zapatería Veloz</td><td>cliente2@email.com</td><td>Básico</td><td class="status-warning">Alerta de Límite</td><td><button>Ver</button></td></tr>
-                        <tr><td>Spas de Lujo S.A.</td><td>cliente3@email.com</td><td>Premium</td><td class="status-active">Activo</td><td><button>Ver</button></td></tr>
+                <table class="campaign-table">
+                    <thead><tr><th>Cliente</th><th>Email</th><th>Plan</th><th>Estado</th><th>Campañas</th></tr></thead>
+                    <tbody id="lista-clientes-body">
+                        <!-- Se llena con JS -->
                     </tbody>
                 </table>
             </div>
 
+            <!-- 3. TODAS LAS CAMPAÑAS (Placeholder por ahora) -->
             <div class="tab-content" id="campanas-todas" style="display: none;">
-                <h2>Todas las Campañas</h2>
-                <table class="admin-table">
-                     <thead><tr><th>Cliente</th><th>Campaña</th><th>Estado</th><th>Prospectos</th><th>Leads</th></tr></thead>
-                     <tbody>
-                        <tr><td>Ferretería El Tornillo Feliz</td><td>Búsqueda de Spas</td><td>Completada</td><td>152</td><td>89</td></tr>
-                        <tr><td>Ferretería El Tornillo Feliz</td><td>Restaurantes Italianos</td><td>Analizando</td><td>100</td><td>45</td></tr>
-                        <tr><td>Zapatería Veloz</td><td>Venta de Zapatos Escolares</td><td>Activa</td><td>350</td><td>150</td></tr>
-                     </tbody>
-                </table>
-            </div>
-
-            <div class="tab-content" id="crear-campana" style="display: none;">
-                <h2>Lanzar Campaña para un Cliente</h2>
-                <div class="form-section">
-                    <label>Seleccionar Cliente</label>
-                    <select><option>Ferretería El Tornillo Feliz</option><option>Zapatería Veloz</option></select>
-                </div>
-                <p>Formulario de creación de campaña (En Construcción).</p>
-            </div>
-            
-            <div class="tab-content" id="supervisar-flujos" style="display: none;">
-                <h2>Supervisar Flujo de Prospectos</h2>
-                <div class="form-section">
-                    <label>Seleccionar Campaña a Supervisar</label>
-                    <select><option>Ferretería - Búsqueda de Spas</option><option>Zapatería - Venta Escolar</option></select>
-                </div>
-                <p>Vista del flujo de prospectos para la campaña seleccionada (En Construcción).</p>
-            </div>
-
-            <div class="tab-content" id="supervisar-conversaciones" style="display: none;">
-                <h2>Supervisar Conversaciones</h2>
-                 <div class="form-section">
-                    <label>Seleccionar Cliente a Supervisar</label>
-                    <select><option>Ferretería El Tornillo Feliz</option><option>Zapatería Veloz</option></select>
-                </div>
-                <p>Vista de las conversaciones para el cliente seleccionado (En Construcción).</p>
+                <h2>Visión de Rayos X (Todas las Campañas)</h2>
+                <p>Aquí verás todas las campañas de todos los clientes.</p>
+                <!-- Se implementará en la fase de "Supervisión" -->
             </div>
         </div>
     </div>
   
-   <script src="{{ url_for('static', filename='admin_script.js') }}"></script>
-   
-   <!-- SCRIPT DEDICADO PARA EL CEREBRO ARQUITECTO -->
+   <!-- SCRIPT DE CONTROL DEL ARQUITECTO -->
    <script>
-       document.addEventListener('DOMContentLoaded', () => {
+       document.addEventListener('DOMContentLoaded', async () => {
+           // 1. CARGAR KPIS GLOBALES
+           try {
+               const res = await fetch('/api/admin/metricas-globales');
+               const data = await res.json();
+               
+               document.getElementById('kpi-mrr').innerText = `$${data.mrr}`;
+               document.getElementById('kpi-clientes').innerText = data.total_clientes;
+               document.getElementById('kpi-data').innerText = data.total_prospectos;
+               document.getElementById('kpi-activas').innerText = data.campanas_activas;
+           } catch(e) {
+               console.error("Error KPIs:", e);
+           }
+
+           // 2. CARGAR TABLA CLIENTES
+           try {
+               const res = await fetch('/api/admin/lista-clientes');
+               const clientes = await res.json();
+               const tbody = document.getElementById('lista-clientes-body');
+               tbody.innerHTML = '';
+
+               clientes.forEach(c => {
+                   const tr = document.createElement('tr');
+                   const estado = c.activo ? '<span style="color:#4caf50">● Activo</span>' : '<span style="color:#f44336">● Inactivo</span>';
+                   tr.innerHTML = `
+                       <td>${c.nombre}</td>
+                       <td>${c.email}</td>
+                       <td>${c.plan.toUpperCase()}</td>
+                       <td>${estado}</td>
+                       <td>${c.campanas}</td>
+                   `;
+                   tbody.appendChild(tr);
+               });
+           } catch(e) {
+               console.error("Error Clientes:", e);
+           }
+
+           // 3. PESTAÑAS
+           const tabs = document.querySelectorAll('.tab-button');
+           const contents = document.querySelectorAll('.tab-content');
+           tabs.forEach(btn => {
+               btn.addEventListener('click', () => {
+                   contents.forEach(c => c.style.display = 'none');
+                   tabs.forEach(t => t.classList.remove('active'));
+                   document.getElementById(btn.dataset.tab).style.display = 'block';
+                   btn.classList.add('active');
+               });
+           });
+
+           // 4. CHAT ARQUITECTO (Igual que antes)
            const chatForm = document.getElementById('chat-form');
-           const userInput = document.getElementById('user-input');
+           const finalInput = document.getElementById('user-input');
            const chatMessages = document.getElementById('chat-messages');
 
-           if (chatForm) {
-               // Reemplazamos el evento submit por defecto del JS externo
-               // Clonamos el nodo para eliminar listeners viejos (truco rápido)
-               const newChatForm = chatForm.cloneNode(true);
-               chatForm.parentNode.replaceChild(newChatForm, chatForm);
+           chatForm.addEventListener('submit', async (e) => {
+               e.preventDefault();
+               const text = finalInput.value.trim();
+               if (!text) return;
+
+               const userMsgDiv = document.createElement('p');
+               userMsgDiv.className = 'msg-user';
+               userMsgDiv.textContent = text;
+               chatMessages.appendChild(userMsgDiv);
+               finalInput.value = '';
+
+               const loadingDiv = document.createElement('p');
+               loadingDiv.className = 'msg-assistant';
+               loadingDiv.textContent = 'Analizando...';
+               chatMessages.appendChild(loadingDiv);
                
-               // Volvemos a referenciar los elementos dentro del nuevo form
-               const finalChatForm = document.getElementById('chat-form');
-               const finalInput = document.getElementById('user-input');
-
-               finalChatForm.addEventListener('submit', async (e) => {
-                   e.preventDefault();
-                   const text = finalInput.value.trim();
-                   if (!text) return;
-
-                   // 1. Mostrar mensaje usuario
-                   const userMsgDiv = document.createElement('p');
-                   userMsgDiv.className = 'msg-user';
-                   userMsgDiv.textContent = text;
-                   chatMessages.appendChild(userMsgDiv);
-                   finalInput.value = '';
-
-                   // 2. Mostrar indicador de carga
-                   const loadingDiv = document.createElement('p');
-                   loadingDiv.className = 'msg-assistant';
-                   loadingDiv.textContent = 'Consultando base de datos...';
-                   chatMessages.appendChild(loadingDiv);
-                   chatMessages.scrollTop = chatMessages.scrollHeight;
-
-                   try {
-                       const response = await fetch('/api/chat-arquitecto', {
-                           method: 'POST',
-                           headers: { 'Content-Type': 'application/json' },
-                           body: JSON.stringify({ message: text })
-                       });
-                       const data = await response.json();
-
-                       // 3. Reemplazar carga con respuesta
-                       loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
-                   } catch (error) {
-                       loadingDiv.textContent = "Error de conexión con el Arquitecto.";
-                   }
-                   chatMessages.scrollTop = chatMessages.scrollHeight;
-               });
-           }
+               try {
+                   const response = await fetch('/api/chat-arquitecto', {
+                       method: 'POST',
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({ message: text })
+                   });
+                   const data = await response.json();
+                   loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+               } catch (error) {
+                   loadingDiv.textContent = "Error de conexión.";
+               }
+           });
        });
    </script>
 </body>
