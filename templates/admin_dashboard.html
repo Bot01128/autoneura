@@ -3,189 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Arquitecto - AutoNeura</title>
-    <!-- Reutilizamos el CSS del cliente porque es bonito y consistente -->
+    <title>Centro de Comando - AutoNeura</title>
+    <!-- Estilos oscuros profesionales -->
     <link rel="stylesheet" href="{{ url_for('static', filename='client_style.css') }}">
     <style>
-        /* Estilos específicos para Admin */
-        body { background-color: #1a1a1a; color: #e0e0e0; } /* Modo Oscuro Hacker */
-        .top-bar { background-color: #2d2d2d; border-bottom: 1px solid #444; color: white; }
-        .left-panel { background-color: #252525; border-right: 1px solid #444; color: white; }
-        .right-panel { background-color: #1a1a1a; }
+        body { background-color: #121212; color: #e0e0e0; }
+        .top-bar { background-color: #1e1e1e; border-bottom: 1px solid #333; }
+        .left-panel { background-color: #181818; border-right: 1px solid #333; }
+        .right-panel { background-color: #121212; }
         
-        .kpi-card { background-color: #333; border: 1px solid #555; }
-        .kpi-title { color: #aaa; }
-        .kpi-value { color: #4caf50; } /* Verde Matrix */
+        .kpi-card { background-color: #1e1e1e; border: 1px solid #333; }
+        .kpi-title { color: #888; }
+        .kpi-value { color: #4caf50; text-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
         
-        .campaign-table { background-color: #2d2d2d; color: white; border: none; }
-        .campaign-table th { background-color: #333; border-bottom: 2px solid #555; color: #aaa; }
-        .campaign-table td { border-bottom: 1px solid #444; }
-        .campaign-table tbody tr:hover { background-color: #383838; }
+        .tab-nav button { color: #888; }
+        .tab-nav button.active { color: #fff; border-bottom-color: #007bff; }
         
-        .chat-messages { background-color: #2d2d2d; }
-        .msg-assistant { background-color: #333; color: white; }
-        .msg-user { background-color: #007bff; }
-        input[type="text"] { background-color: #333; color: white; border: 1px solid #555; }
+        /* Tablas Oscuras */
+        .campaign-table { background-color: #1e1e1e; color: #ddd; }
+        .campaign-table th { background-color: #252525; color: #fff; border-bottom: 2px solid #444; }
+        .campaign-table td { border-bottom: 1px solid #333; }
+        .campaign-table tr:hover { background-color: #2a2a2a; }
+
+        /* Finanzas */
+        .finance-positive { color: #4caf50; font-weight: bold; }
+        .finance-negative { color: #f44336; font-weight: bold; }
+        
+        .gasto-form { background: #252525; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #444; }
+        input, select { background-color: #333; border: 1px solid #555; color: white; }
     </style>
 </head>
 <body>
     <div class="top-bar">
-        <div class="logo"><h2>AutoNeura <strong>[Modo Arquitecto]</strong></h2></div>
+        <div class="logo"><h2>AutoNeura <strong>[ADMIN]</strong></h2></div>
         <div class="user-info">
-            <span>Bienvenido, Arquitecto</span>
-            <button id="logout-btn" class="recharge-btn" style="background-color: #d32f2f;">Cerrar Sesión</button>
+            <span>Arquitecto</span>
+            <button id="logout-btn" class="recharge-btn" style="background-color: #d32f2f;">Salir</button>
         </div>
     </div>
     <div class="container">
+        <!-- CHAT LATERAL -->
         <div class="left-panel">
-            <div class="chat-header">
-                <h2>Asistente de CEO</h2>
-            </div>
+            <div class="chat-header"><h2>Asistente CEO</h2></div>
             <div class="chat-window">
                 <div class="chat-messages" id="chat-messages">
                     <p class="msg-assistant">Sistema Operativo. Conectado a la Base de Datos Maestra. ¿Qué deseas consultar hoy?</p>
                 </div>
                 <form id="chat-form" class="chat-input">
-                    <input type="text" id="user-input" placeholder="Ej: Ingresos de este mes...">
+                    <input type="text" id="user-input" placeholder="Consulta SQL...">
                     <button id="send-btn" type="submit">Ejecutar</button>
                 </form>
             </div>
         </div>
+
         <div class="right-panel">
+            <!-- MENÚ DE 5 PESTAÑAS -->
             <div class="tab-nav">
-                <button class="tab-button active" data-tab="dashboard-global">Dashboard Global</button>
-                <button class="tab-button" data-tab="clientes">Clientes</button>
-                <button class="tab-button" data-tab="campanas-todas">Todas las Campañas</button>
+                <button class="tab-button active" data-tab="dashboard">📊 Global</button>
+                <button class="tab-button" data-tab="clientes">👥 Clientes</button>
+                <button class="tab-button" data-tab="campanas">📢 Campañas</button>
+                <button class="tab-button" data-tab="finanzas">💰 Finanzas</button>
+                <button class="tab-button" data-tab="monitor">⚙️ Monitor</button>
             </div>
 
-            <!-- 1. DASHBOARD GLOBAL (REAL) -->
-            <div class="tab-content" id="dashboard-global" style="display: block;">
-                <h2>Resumen del Imperio</h2>
+            <!-- 1. DASHBOARD GLOBAL -->
+            <div class="tab-content" id="dashboard" style="display: block;">
+                <h2>Signos Vitales</h2>
                 <div class="kpi-container">
-                    <div class="kpi-card">
-                        <span class="kpi-title">💰 MRR (Mensual)</span>
-                        <span class="kpi-value" id="kpi-mrr">$0.00</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-title">👥 Total Clientes</span>
-                        <span class="kpi-value" id="kpi-clientes">0</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-title">🌎 Data (Prospectos)</span>
-                        <span class="kpi-value" id="kpi-data">0</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-title">⚡ Campañas Activas</span>
-                        <span class="kpi-value" id="kpi-activas">0</span>
-                    </div>
+                    <div class="kpi-card"><span class="kpi-title">Ingresos Mensuales</span><span class="kpi-value" id="kpi-mrr">$0.00</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Clientes Totales</span><span class="kpi-value" id="kpi-clientes">0</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-data">0</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Campañas Activas</span><span class="kpi-value" id="kpi-activas">0</span></div>
                 </div>
             </div>
 
-            <!-- 2. CLIENTES (REAL) -->
+            <!-- 2. CLIENTES -->
             <div class="tab-content" id="clientes" style="display: none;">
-                <h2>Gestión de Clientes</h2>
+                <h2>Base de Datos de Clientes</h2>
                 <table class="campaign-table">
-                    <thead><tr><th>Cliente</th><th>Email</th><th>Plan</th><th>Estado</th><th>Campañas</th></tr></thead>
-                    <tbody id="lista-clientes-body">
-                        <!-- Se llena con JS -->
+                    <thead><tr><th>Nombre</th><th>Email</th><th>Plan</th><th>Estado</th><th>Campañas</th></tr></thead>
+                    <tbody id="lista-clientes"></tbody>
+                </table>
+            </div>
+
+            <!-- 3. TODAS LAS CAMPAÑAS -->
+            <div class="tab-content" id="campanas" style="display: none;">
+                <h2>Visión de Rayos X</h2>
+                <p>Lista maestra de todas las campañas del sistema.</p>
+                <table class="campaign-table">
+                    <thead><tr><th>Campaña</th><th>Cliente</th><th>Estado</th><th>Prospectos</th></tr></thead>
+                    <tbody id="lista-campanas">
+                        <tr><td colspan="4">Cargando datos...</td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <!-- 3. TODAS LAS CAMPAÑAS (Placeholder por ahora) -->
-            <div class="tab-content" id="campanas-todas" style="display: none;">
-                <h2>Visión de Rayos X (Todas las Campañas)</h2>
-                <p>Aquí verás todas las campañas de todos los clientes.</p>
-                <!-- Se implementará en la fase de "Supervisión" -->
+            <!-- 4. FINANZAS (NUEVO) -->
+            <div class="tab-content" id="finanzas" style="display: none;">
+                <h2>Tesorería y Ganancias</h2>
+                
+                <!-- KPI DE GANANCIA NETA -->
+                <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #4caf50; margin-bottom: 20px; text-align: center;">
+                    <h3 style="color: #4caf50; margin:0;">GANANCIA NETA REAL (Caja)</h3>
+                    <h1 style="font-size: 3em; margin: 10px 0; color: white;" id="total-neto">$0.00</h1>
+                </div>
+
+                <!-- FORMULARIO DE GASTOS -->
+                <div class="gasto-form">
+                    <h4 style="margin-top:0;">🔴 Registrar Gasto Operativo</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="gasto-concepto" placeholder="Ej: Recarga Apify" style="flex: 2;">
+                        <input type="number" id="gasto-monto" placeholder="Monto ($)" style="flex: 1;">
+                        <button class="recharge-btn" style="background-color: #f44336;" onclick="registrarGasto()">Registrar Salida</button>
+                    </div>
+                </div>
+
+                <!-- TABLA HISTORIAL -->
+                <h3>Libro Contable (Últimos 50 movimientos)</h3>
+                <table class="campaign-table">
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Monto Bruto</th><th>Neto</th></tr></thead>
+                    <tbody id="tabla-finanzas"></tbody>
+                </table>
+            </div>
+
+            <!-- 5. MONITOR DEL SISTEMA (NUEVO) -->
+            <div class="tab-content" id="monitor" style="display: none;">
+                <h2>Cuarto de Máquinas</h2>
+                <div class="kpi-container">
+                    <div class="kpi-card"><span class="kpi-title">Base de Datos</span><span class="kpi-value" id="status-db">...</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Google AI</span><span class="kpi-value" id="status-ai">...</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Apify Scraper</span><span class="kpi-value" id="status-apify">...</span></div>
+                </div>
             </div>
         </div>
     </div>
-  
-   <!-- SCRIPT DE CONTROL DEL ARQUITECTO -->
-   <script>
-       document.addEventListener('DOMContentLoaded', async () => {
-           // 1. CARGAR KPIS GLOBALES
-           try {
-               const res = await fetch('/api/admin/metricas-globales');
-               const data = await res.json();
-               
-               document.getElementById('kpi-mrr').innerText = `$${data.mrr}`;
-               document.getElementById('kpi-clientes').innerText = data.total_clientes;
-               document.getElementById('kpi-data').innerText = data.total_prospectos;
-               document.getElementById('kpi-activas').innerText = data.campanas_activas;
-           } catch(e) {
-               console.error("Error KPIs:", e);
-           }
 
-           // 2. CARGAR TABLA CLIENTES
-           try {
-               const res = await fetch('/api/admin/lista-clientes');
-               const clientes = await res.json();
-               const tbody = document.getElementById('lista-clientes-body');
-               tbody.innerHTML = '';
+    <!-- JAVASCRIPT DEL ADMIN -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            
+            // --- 1. CARGA INICIAL DE DATOS ---
+            cargarKPIsGlobales();
+            cargarClientes();
+            cargarFinanzas();
+            cargarMonitor();
 
-               clientes.forEach(c => {
-                   const tr = document.createElement('tr');
-                   const estado = c.activo ? '<span style="color:#4caf50">● Activo</span>' : '<span style="color:#f44336">● Inactivo</span>';
-                   tr.innerHTML = `
-                       <td>${c.nombre}</td>
-                       <td>${c.email}</td>
-                       <td>${c.plan.toUpperCase()}</td>
-                       <td>${estado}</td>
-                       <td>${c.campanas}</td>
-                   `;
-                   tbody.appendChild(tr);
-               });
-           } catch(e) {
-               console.error("Error Clientes:", e);
-           }
+            // --- 2. LÓGICA DE PESTAÑAS ---
+            const tabs = document.querySelectorAll('.tab-button');
+            const contents = document.querySelectorAll('.tab-content');
+            tabs.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    contents.forEach(c => c.style.display = 'none');
+                    tabs.forEach(t => t.classList.remove('active'));
+                    document.getElementById(btn.dataset.tab).style.display = 'block';
+                    btn.classList.add('active');
+                });
+            });
 
-           // 3. PESTAÑAS
-           const tabs = document.querySelectorAll('.tab-button');
-           const contents = document.querySelectorAll('.tab-content');
-           tabs.forEach(btn => {
-               btn.addEventListener('click', () => {
-                   contents.forEach(c => c.style.display = 'none');
-                   tabs.forEach(t => t.classList.remove('active'));
-                   document.getElementById(btn.dataset.tab).style.display = 'block';
-                   btn.classList.add('active');
-               });
-           });
+            // --- 3. FUNCIONES DE CARGA ---
+            async function cargarKPIsGlobales() {
+                try {
+                    const res = await fetch('/api/admin/metricas-globales');
+                    const data = await res.json();
+                    document.getElementById('kpi-mrr').innerText = `$${data.mrr}`;
+                    document.getElementById('kpi-clientes').innerText = data.total_clientes;
+                    document.getElementById('kpi-data').innerText = data.total_prospectos;
+                    document.getElementById('kpi-activas').innerText = data.campanas_activas;
+                } catch(e) { console.error(e); }
+            }
 
-           // 4. CHAT ARQUITECTO (Igual que antes)
-           const chatForm = document.getElementById('chat-form');
-           const finalInput = document.getElementById('user-input');
-           const chatMessages = document.getElementById('chat-messages');
+            async function cargarClientes() {
+                try {
+                    const res = await fetch('/api/admin/lista-clientes');
+                    const clientes = await res.json();
+                    const tbody = document.getElementById('lista-clientes');
+                    tbody.innerHTML = '';
+                    clientes.forEach(c => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${c.nombre}</td><td>${c.email}</td><td>${c.plan}</td><td>${c.activo ? '🟢' : '🔴'}</td><td>${c.campanas}</td>`;
+                        tbody.appendChild(tr);
+                    });
+                } catch(e) {}
+            }
 
-           chatForm.addEventListener('submit', async (e) => {
-               e.preventDefault();
-               const text = finalInput.value.trim();
-               if (!text) return;
+            async function cargarFinanzas() {
+                try {
+                    const res = await fetch('/api/admin/finanzas');
+                    const data = await res.json();
+                    
+                    document.getElementById('total-neto').innerText = `$${data.total_neto.toFixed(2)}`;
+                    
+                    const tbody = document.getElementById('tabla-finanzas');
+                    tbody.innerHTML = '';
+                    
+                    data.historial.forEach(h => {
+                        const tr = document.createElement('tr');
+                        const color = h.tipo === 'INGRESO' ? '#4caf50' : '#f44336';
+                        tr.innerHTML = `
+                            <td>${h.fecha}</td>
+                            <td style="color:${color}; font-weight:bold;">${h.tipo}</td>
+                            <td>${h.desc || h.categoria}</td>
+                            <td>$${h.bruto}</td>
+                            <td style="color:${color};">$${h.neto}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } catch(e) {}
+            }
 
-               const userMsgDiv = document.createElement('p');
-               userMsgDiv.className = 'msg-user';
-               userMsgDiv.textContent = text;
-               chatMessages.appendChild(userMsgDiv);
-               finalInput.value = '';
+            async function cargarMonitor() {
+                try {
+                    const res = await fetch('/api/admin/monitor');
+                    const data = await res.json();
+                    document.getElementById('status-db').innerText = data.database;
+                    document.getElementById('status-ai').innerText = data.google_ai;
+                    document.getElementById('status-apify').innerText = data.apify;
+                } catch(e) {}
+            }
 
-               const loadingDiv = document.createElement('p');
-               loadingDiv.className = 'msg-assistant';
-               loadingDiv.textContent = 'Analizando...';
-               chatMessages.appendChild(loadingDiv);
-               
-               try {
-                   const response = await fetch('/api/chat-arquitecto', {
-                       method: 'POST',
-                       headers: { 'Content-Type': 'application/json' },
-                       body: JSON.stringify({ message: text })
-                   });
-                   const data = await response.json();
-                   loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
-               } catch (error) {
-                   loadingDiv.textContent = "Error de conexión.";
-               }
-           });
-       });
-   </script>
+            // --- 4. CHAT ARQUITECTO ---
+            const chatForm = document.getElementById('chat-form');
+            if(chatForm) {
+                const newForm = chatForm.cloneNode(true);
+                chatForm.parentNode.replaceChild(newForm, chatForm);
+                
+                const finalForm = document.getElementById('chat-form');
+                const finalInput = document.getElementById('user-input');
+                const chatMessages = document.getElementById('chat-messages');
+
+                finalForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const text = finalInput.value.trim();
+                    if(!text) return;
+
+                    const userMsg = document.createElement('p');
+                    userMsg.className = 'msg-user';
+                    userMsg.innerText = text;
+                    chatMessages.appendChild(userMsg);
+                    finalInput.value = '';
+
+                    try {
+                        const res = await fetch('/api/chat-arquitecto', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({message: text})
+                        });
+                        const data = await res.json();
+                        const botMsg = document.createElement('p');
+                        botMsg.className = 'msg-assistant';
+                        botMsg.innerHTML = data.response.replace(/\n/g, '<br>');
+                        chatMessages.appendChild(botMsg);
+                    } catch(e) {}
+                });
+            }
+        });
+
+        // Función Global para registrar gasto
+        async function registrarGasto() {
+            const concepto = document.getElementById('gasto-concepto').value;
+            const monto = document.getElementById('gasto-monto').value;
+            
+            if(!concepto || !monto) return alert("Llena los datos");
+
+            if(confirm(`¿Registrar gasto de $${monto}? Esto restará de tu ganancia.`)) {
+                await fetch('/api/admin/registrar-gasto', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({concepto, monto})
+                });
+                alert("Gasto registrado");
+                location.reload(); 
+            }
+        }
+    </script>
 </body>
 </html>
