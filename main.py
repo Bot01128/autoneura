@@ -519,6 +519,203 @@ def admin_lista_clientes():
         return jsonify([]), 500
     finally:
         conn.close()
+        # ==========================================
+# NUEVAS RUTAS: FINANZAS Y MONITOR (ADMIN)
+# ==========================================
+
+# 1. OBTENER HISTORIAL FINANCIERO
+@app.route('/api/admin/finanzas', methods=['GET'])
+def admin_get_finanzas():
+    conn = get_db_connection()
+    if not conn: return jsonify([]), 500
+    try:
+        cur = conn.cursor()
+        # Traemos los últimos 5>
+                <button class="tab-button" data-tab="campanas">📢 Campañas</button>
+                <button class="tab-button" data-tab="finanzas">💰 Finanzas</button>
+                <button class="tab-button" data-tab="monitor">⚙️ Monitor</button>
+            </div>
+
+            <!-- 1. DASHBOARD GLOBAL -->
+            <div class="tab-content" id="dashboard" style="display: block;">
+                <h2>Signos Vitales</h2>
+                <div class="kpi-container">
+                    <div class="kpi-card"><span class="kpi-title">Ingresos Mensuales</span><span class="kpi-value" id="kpi-mrr">$0.00</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Clientes Totales</span><span class="kpi-value" id="kpi-clientes">0</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Prospectos Totales</span><span class="kpi-value" id="kpi-data">0</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Campañas Activas</span><span class="kpi-value" id="kpi-activas">0</span></div>
+                </div>
+            </div>
+
+            <!-- 2. CLIENTES -->
+            <div class="tab-content" id="clientes" style="display: none;">
+                <h2>Base de Datos de Clientes</h2>
+                <table class="campaign-table">
+                    <thead><tr><th>Nombre</th><th>Email</th><th>Plan</th><th>Estado</th><th>Campañas</th></tr></thead>
+                    <tbody id="lista-clientes"></tbody>
+                </table>
+            </div>
+
+            <!-- 3. TODAS LAS CAMPAÑAS -->
+            <div class="tab-content" id="campanas" style="display: none;">
+                <h2>Visión de Rayos X</h2>
+                <p>Lista maestra de todas las campañas del sistema.</p>
+                <table class="campaign-table">
+                    <thead><tr><th>Campaña</th><th>Cliente</th><th>Estado</th><th>Prospectos</th></tr></thead>
+                    <tbody id="lista-campanas">
+                        <!-- Se llenará luego con JS -->
+                        <tr><td colspan="4">Cargando datos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 4. FINANZAS (NUEVO) -->
+            <div class="tab-content" id="finanzas" style="display: none;">
+                <h2>Tesorería y Ganancias</h2>
+                
+                <!-- KPI DE GANANCIA NETA -->
+                <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #4caf50; margin-bottom: 20px; text-align: center;">
+                    <h3 style="color: #4caf50; margin:0;">GANANCIA NETA REAL (Caja)</h3>
+                    <h1 style="font-size: 3em; margin: 10px 0; color: white;" id="total-neto">$0.00</h1>
+                </div>
+
+                <!-- FORMULARIO DE GASTOS -->
+                <div class="gasto-form">
+                    <h4 style="margin-top:0;">🔴 Registrar Gasto Operativo</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="gasto-concepto" placeholder="Ej: Recarga Apify" style="flex: 2;">
+                        <input type="number" id="gasto-monto" placeholder="Monto ($)" style="flex: 1;">
+                        <button class="recharge-btn" style="background-0 movimientos
+        cur.execute("""
+            SELECT created_at, movement_type, category, description, amount_gross, amount_net 
+            FROM finance_logs 
+            ORDER BY created_at DESC LIMIT 50
+        """)
+        rows = cur.fetchall()
+        
+        # Calculamos el Balance Total (Ganancia Neta)
+        cur.execute("SELECT SUM(amount_net) FROM finance_logs")
+        balance = cur.fetchone()[0] or 0.00
+        
+        historial = []
+        for r in rows:
+            historial.append({
+                "fecha": r[0].strftime('%Y-%m-%d %H:%M'),
+                "tipo": r[1],
+                "categoria": r[2],
+                "desc": r[3] or "-",
+                "bruto": float(r[4]),
+                "neto": float(r[5])
+            })
+            
+        return jsonify({"balance": float(balance), "historial": historial})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+# 2. REGISTRAR GASTO MANUAL (Tú registras lo que pagas)
+@app.route('/api/color: #f44336;" onclick="registrarGasto()">Registrar Salida</button>
+                    </div>
+                </div>
+
+                <!-- TABLA HISTORIAL -->
+                <h3>Libro Contable (Últimos 50 movimientos)</h3>
+                <table class="campaign-table">
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Monto Bruto</th><th>Neto</th></tr></thead>
+                    <tbody id="tabla-finanzas"></tbody>
+                </table>
+            </div>
+
+            <!-- 5. MONITOR DEL SISTEMA (NUEVO) -->
+            <div class="tab-content" idadmin/registrar-gasto', methods=['POST'])
+def admin_registrar_gasto():
+    d = request.json
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        # Un gasto es negativo para el neto. 
+        # Ejemplo: Bruto 10, Neto -10 (porque salió de tu bolsillo)
+        monto = float(d.get('monto'))
+        monto_neto = monto * -1  
+        
+        cur.execute("""
+            INSERT INTO finance_logs (movement_type, category, description, amount_gross, amount_net)
+            VALUES ('GASTO', %s, %s, %s, %s)
+        """, (d.get('categoria'), d.get('descripcion'), monto, monto_neto))
+        
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return="monitor" style="display: none;">
+                <h2>Cuarto de Máquinas</h2>
+                <div class="kpi-container">
+                    <div class="kpi-card"><span class="kpi-title">Base de Datos</span><span class="kpi-value" id="status-db">...</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Google AI</span><span class="kpi-value" id="status-ai">...</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Apify Scraper</span><span class="kpi-value" id="status-apify">...</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT DEL ADMIN -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            
+            // --- 1. CARGA INICIAL DE DATOS ---
+            cargarKPIsGlobales();
+            cargarClientes();
+            cargarFinanzas();
+            cargarMonitor();
+
+            // --- 2. LÓGICA DE PESTAÑAS ---
+            const tabs = document.querySelectorAll('.tab-button');
+            const contents = document.querySelectorAll('.tab-content');
+            tabs.forEach(btn => {
+                btn jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+# 3. MONITOR DE SISTEMA (Estado de las APIs)
+@app.route('/api/admin/monitor', methods=['GET'])
+def admin_monitor():
+    # Verificamos DB
+    db_status = "OK" if get_db_connection() else "ERROR"
+    
+    # Verificamos Google IA (Simulada para no gastar saldo, o real si quieres)
+    ia_status = "OK" if GOOGLE_API_KEY else "FALTA KEY"
+    
+    return jsonify({
+        "database": db_status,
+        ".addEventListener('click', () => {
+                    contents.forEach(c => c.style.display = 'none');
+                    tabs.forEach(t => t.classList.remove('active'));
+                    document.getElementById(btn.dataset.tab).style.display = 'block';
+                    btn.classList.add('active');
+                });
+            });
+
+            // --- 3. FUNCIONES DE CARGA ---
+            async function cargarKPIsGlobales() {
+                try {
+                    const res = await fetch('/api/admin/metricas-globales');
+                    const data = await res.json();
+                    document.getElementById('kpi-mrr').innerText = `$${data.mrr}`;
+                    document.getElementById('kpi-clientes').innerText = data.total_clientes;
+                    document.getElementById('kpi-data').innerText = data.total_prospectos;
+                    document.getElementById('kpi-activas').innerText = data.campanas_activas;
+                } catch(e) { console.error(e); }
+            }
+
+            async function cargarClientes() {
+                try {
+                    const res = await fetch('/api/admin/lista-clientes');
+                    const clientes = await res.json();
+                    const tbody = document.getElementById('lista-clientes');
+                    tbody.innerHTML = '';
+                    clientes.forEach(google_ai": ia_status,
+        "apify": "OK" # Asumimos OK si hay token, luego podemos refinar
+    })
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
