@@ -242,12 +242,17 @@
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({message: text})
                         });
-                        const data = await response.json();
+                        const data = await res.json(); // <--- CORREGIDO: AQUI DECÍA response.json()
                         const botMsg = document.createElement('p');
                         botMsg.className = 'msg-assistant';
                         botMsg.innerHTML = data.response.replace(/\n/g, '<br>');
                         chatMessages.appendChild(botMsg);
-                    } catch(e) {}
+                    } catch(e) {
+                        const errorMsg = document.createElement('p');
+                        errorMsg.className = 'msg-assistant';
+                        errorMsg.innerText = "Error de conexión (Check JS Console)";
+                        chatMessages.appendChild(errorMsg);
+                    }
                 });
             }
         });
