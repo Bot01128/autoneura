@@ -2,22 +2,43 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log("⚡ AutoNeura Frontend 2.0 Cargado - Modo Inteligente Activo");
 
     // =========================================================
-    // 1. LÓGICA DE PESTAÑAS (YA NO EXISTE 'MANAGE-CAMPAIGN' COMO PESTAÑA)
+    // 0. INICIALIZAR BANDERAS DE PAÍSES
+    // =========================================================
+    const phoneInputOptions = {
+        initialCountry: "auto",
+        separateDialCode: true,
+        geoIpLookup: function(callback) {
+            fetch('https://ipapi.co/json')
+                .then(function(res) { return res.json(); })
+                .then(function(data) { callback(data.country_code); })
+                .catch(function() { callback("us"); });
+        },
+        utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
+    };
+
+    const inputCreate = document.querySelector("#numero_whatsapp");
+    if(inputCreate) window.intlTelInput(inputCreate, phoneInputOptions);
+
+    const inputEdit = document.querySelector("#edit_numero_whatsapp");
+    if(inputEdit) window.intlTelInput(inputEdit, phoneInputOptions);
+
+
+    // Variable Global
+    let currentChatMode = 'analista'; 
+
+    // =========================================================
+    // 1. LÓGICA DE PESTAÑAS
     // =========================================================
     const tabs = document.querySelectorAll('.tab-button');
     const contents = document.querySelectorAll('.tab-content');
 
     function switchTab(tabId) {
-        // Ocultar todos los contenidos
         contents.forEach(content => content.style.display = 'none');
-        // Quitar clase active de todos los botones
         tabs.forEach(tab => tab.classList.remove('active'));
 
-        // Mostrar contenido seleccionado
         const selectedContent = document.getElementById(tabId);
         if (selectedContent) selectedContent.style.display = 'block';
 
-        // Activar botón seleccionado
         const selectedTab = document.querySelector(`[data-tab="${tabId}"]`);
         if (selectedTab) selectedTab.classList.add('active');
     }
@@ -25,13 +46,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     tabs.forEach(button => {
         button.addEventListener('click', () => {
             const target = button.getAttribute('data-tab');
-            // Si el botón es "manage-campaign", lo redirigimos a "my-campaigns" porque ya no existe
             if(target === 'manage-campaign') {
                 switchTab('my-campaigns');
             } else {
                 switchTab(target);
             }
-            // Si entra a Mis Campañas, recargamos los datos y cerramos edición
             if (target === 'my-campaigns') {
                 cargarCampanas();
                 if(typeof cerrarEdicion === 'function') cerrarEdicion(); 
@@ -39,22 +58,71 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 
-    // ... (Lógica de selección de plan se mantiene igual) ...
+    // =========================================================
+    // 2. LÓGICA DE SELECCIÓN DE PLAN
+    // =========================================================
     window.selectPlan = function(element, planName, price, prospects) {
         document.querySelectorAll('#create-plans-container .plan-card').forEach(card => {
             card.classList.remove('selected');
         });
         element.classList.add('selected');
+        
         document.getElementById('selected-plan').innerText = planName.charAt(0).toUpperCase() + planName.slice(1);
         document.getElementById('selected-prospects').innerText = prospects;
         document.getElementById('total-cost').innerText = `$${price}.00`;
         document.getElementById('recharge-amount').innerText = `$${price}.00`;
     };
 
-    // ... (Chatbot Híbrido se mantiene igual) ...
-    
     // =========================================================
-    // 4. GESTIÓN DE CAMPAÑAS (MODIFICADA PARA VISTA UNIFICADA)
+    // 3. CHATBOT HÍBRIDO
+    // =========================================================
+    const chatForm = document.getElementById('chat-form');
+    const userInput = document.getElementById('user-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    if (chatForm) {
+        const newChatForm = chatForm.cloneNode(true);
+        chatForm.parentNode.replaceChild(newChatForm, chatForm);
+        
+        const finalChatForm = document.getElementById('chat-form');
+        const finalInput = document.getElementById('user-input');
+
+        finalChatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = finalInput.value.trim();
+            if (!text) return;
+
+            const userMsgDiv = document.createElement('p');
+            userMsgDiv.className = 'msg-user';
+            userMsgDiv.textContent = text;
+            chatMessages.appendChild(userMsgDiv);
+            finalInput.value = '';
+
+            const loadingDiv = document.createElement('p');
+            loadingDiv.className = 'msg-assistant';
+            loadingDiv.textContent = 'Procesando...';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            let endpoint = (currentChatMode === 'vendedor') ? '/chat' : '/api/chat-arquitecto';
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await response.json();
+                loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
+            } catch (error) {
+                loadingDiv.textContent = "Error: No puedo conectar con el servidor.";
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
+    }
+
+    // =========================================================
+    // 4. GESTIÓN DE CAMPAÑAS
     // =========================================================
     let campañasCache = [];
 
@@ -69,12 +137,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             const data = await res.json();
             campañasCache = data;
 
-            // --- Lógica del Interruptor Inteligente ---
             const advancedTabs = document.querySelectorAll('.advanced-feature');
-            
+            const assistantGreeting = document.querySelector('.msg-assistant');
+
             if (data.length === 0) {
-                // CLIENTE NUEVO: Ocultar todo menos Crear
                 advancedTabs.forEach(tab => tab.style.display = 'none');
+                currentChatMode = 'vendedor';
+                if(assistantGreeting) assistantGreeting.innerHTML = "¡Hola! Veo que aún no tienes campañas activas.<br>Soy tu Asistente de Ventas.";
+                
                 const activeTab = document.querySelector('.tab-button.active');
                 if(!activeTab || activeTab.style.display === 'none'){
                     const createTab = document.querySelector('[data-tab="create-campaign"]');
@@ -82,8 +152,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No tienes campañas activas. ¡Crea la primera!</td></tr>';
             } else {
-                // CLIENTE VIEJO: Mostrar todo
                 advancedTabs.forEach(tab => tab.style.display = 'inline-block');
+                currentChatMode = 'analista';
                 
                 let totalProspectos = 0;
                 let totalLeads = 0;
@@ -91,8 +161,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 data.forEach(camp => {
                     totalProspectos += (camp.prospects_count || 0);
-                    // totalLeads += (camp.leads_count || 0);
-
+                    
                     const tr = document.createElement('tr');
                     const estadoHtml = camp.status === 'active' 
                         ? '<span style="color:green; font-weight:bold;">● Activa</span>' 
@@ -118,13 +187,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 actualizarKPIs(totalProspectos, totalLeads);
 
-                // ACTIVAR BOTONES "VER" (DESPLIEGAN EL PANEL DE ABAJO)
                 document.querySelectorAll('.btn-gestionar').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const id = e.target.getAttribute('data-id');
                         const p = parseInt(e.target.getAttribute('data-pros'));
                         const l = parseInt(e.target.getAttribute('data-leads'));
-                        abrirEdicionEnMismaPagina(id, p, l); // <--- NUEVA FUNCIÓN
+                        abrirEdicionEnMismaPagina(id, p, l);
                     });
                 });
             }
@@ -142,17 +210,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('kpi-rate').innerText = `${tasa}%`;
     }
 
-    // === NUEVA FUNCIÓN: MUESTRA EL FORMULARIO ABAJO ===
     async function abrirEdicionEnMismaPagina(id, prospectosLocales, leadsLocales) {
-        // 1. Actualizar KPIs con los datos DE ESTA CAMPAÑA ESPECÍFICA
         actualizarKPIs(prospectosLocales, leadsLocales);
-        
         try {
             const res = await fetch(`/api/campana/${id}`);
             if (!res.ok) throw new Error("Fallo API");
             const data = await res.json();
 
-            // 2. Llenar formulario
             document.getElementById('manage-campaign-title').innerText = data.campaign_name;
             document.getElementById('edit_campaign_id').value = data.id;
 
@@ -167,7 +231,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             setVal('edit_ai_constitution', data.adn_corporativo || ""); 
             setVal('edit_ai_blackboard', data.pizarron_contexto || "");
             
-            // Cargar WhatsApp en el plugin de banderas (si existe)
             const inputEdit = document.querySelector("#edit_numero_whatsapp");
             if(inputEdit && window.intlTelInputGlobals) {
                 const iti = window.intlTelInputGlobals.getInstance(inputEdit);
@@ -180,11 +243,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             setSelect('edit_objetivo_cta', data.cta_goal);
             setSelect('edit_tono_marca', data.tone_voice);
 
-            // 3. MOSTRAR EL PANEL DE EDICIÓN Y OCULTAR LA TABLA
             document.getElementById('campaigns-list-view').style.display = 'none';
             document.getElementById('edit-panel-container').style.display = 'block';
-            
-            // Scroll suave hacia arriba para ver los KPIs actualizados
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (e) {
@@ -234,7 +294,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 if(res.ok) {
                     alert("✅ Guardado.");
-                    // Volver a la lista
                     if(typeof cerrarEdicion === 'function') cerrarEdicion();
                     cargarCampanas();
                 } else {
@@ -249,21 +308,74 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // BOTÓN LANZAR CAMPAÑA (Igual que antes...)
+    // BOTÓN LANZAR CAMPAÑA (LÓGICA COMPLETA)
     const btnLanzar = document.getElementById('lancam');
     if (btnLanzar) {
         btnLanzar.addEventListener('click', async () => {
-            // ... (Tu código de lanzar campaña se mantiene igual) ...
-            // (Para ahorrar espacio no lo repito aquí, pero asegúrate de pegarlo completo)
-            // Si necesitas que te lo escriba de nuevo, dímelo.
+            const selectedPlanCard = document.querySelector('.plan-card.selected');
+            if(!selectedPlanCard) { alert("Por favor, selecciona un plan primero."); return; }
             
-            // ... [LÓGICA DEL BOTÓN LANZAR] ...
+            // Obtener datos
+            const nombre = document.getElementById('nombre_campana').value;
+            const queVende = document.getElementById('que_vendes').value;
             
-            // ALERTA: PEGA AQUÍ LA LÓGICA DE LANZAR CAMPAÑA QUE YA TENÍAS
-            // O SI QUIERES EL ARCHIVO 100% COMPLETO SIN RECORTES, PÍDEMELO.
+            if(!nombre || !queVende) { alert("Completa los campos obligatorios."); return; }
+
+            // Manejo de Whatsapp seguro
+            let whatsappNum = "";
+            const whatsappInput = document.querySelector("#numero_whatsapp");
+            if (whatsappInput && whatsappInput.nextElementSibling && whatsappInput.nextElementSibling.classList.contains("iti")) {
+                whatsappNum = window.intlTelInputGlobals.getInstance(whatsappInput).getNumber();
+            } else {
+                whatsappNum = whatsappInput ? whatsappInput.value : "";
+            }
+
+            const payload = {
+                nombre: nombre,
+                que_vende: queVende,
+                a_quien: document.getElementById('a_quien_va_dirigido').value,
+                idiomas: document.getElementById('idiomas_busqueda').value,
+                ubicacion: document.getElementById('ubicacion_geografica').value,
+                ticket_producto: document.getElementById('ticket_producto').value,
+                objetivo_cta: document.getElementById('objetivo_cta').value,
+                competidores_principales: document.getElementById('competidores_principales').value,
+                dolores_pain_points: document.getElementById('dolores_pain_points').value,
+                red_flags: document.getElementById('red_flags').value,
+                tono_marca: document.getElementById('tono_marca').value,
+                ai_constitution: document.getElementById('ai_constitution') ? document.getElementById('ai_constitution').value : "",
+                ai_blackboard: document.getElementById('ai_blackboard') ? document.getElementById('ai_blackboard').value : "",
+                tipo_producto: document.querySelector('input[name="tipo_producto"]:checked') ? document.querySelector('input[name="tipo_producto"]:checked').value : "tangible",
+                numero_whatsapp: whatsappNum,
+                enlace_venta: document.getElementById('enlace_venta').value
+            };
+
+            btnLanzar.innerText = "Lanzando...";
+            btnLanzar.disabled = true;
+
+            try {
+                const res = await fetch('/api/crear-campana', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+
+                if(data.success) {
+                    alert("🚀 ¡Campaña Lanzada!");
+                    document.querySelector('[data-tab="my-campaigns"]').click();
+                    cargarCampanas(); 
+                } else {
+                    alert("Error: " + (data.error || "Desconocido"));
+                }
+            } catch (e) {
+                alert("Error de conexión.");
+            } finally {
+                btnLanzar.innerText = "Lanzar Campaña";
+                btnLanzar.disabled = false;
+            }
         });
     }
 
-    // Iniciar carga al abrir la página
     cargarCampanas();
 });
