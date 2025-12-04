@@ -19,7 +19,7 @@ class AIManager:
         Busca la mejor IA disponible según la tarea.
         task_type: 'velocidad' (Flash), 'inteligencia' (Pro), 'general'
         """
-        print(f"--- 🧠 AI MANAGER: Buscando cerebro para tarea: {task_type} ---")
+        # print(f"--- 🧠 AI MANAGER: Buscando cerebro para tarea: {task_type} ---")
         
         # 1. Buscamos modelos en Supabase que coincidan con la tarea
         #    Prioridad: FREE primero, luego PAID. Que no hayan superado su límite hoy.
@@ -43,9 +43,9 @@ class AIManager:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
         
-        print(f"✅ Cerebro Asignado: {model_name} (Dueño: {candidate['ai_vault']['owner_email']})")
+        print(f"✅ Cerebro Asignado: {model_name}")
         
-        # 3. Retornamos el objeto modelo y el ID para registrar el uso después
+        # 3. Retornamos el objeto modelo y el ID para registrar el uso o fallos
         return model, candidate['id']
 
     def _find_available_key(self, task_type, account_tier):
@@ -70,6 +70,7 @@ class AIManager:
             for item in response.data:
                 # Verificación matemática de seguridad
                 limite_seguro = item['daily_limit'] - item['safety_margin']
+                # AQUÍ ESTÁ LA CLAVE: Si usage_today es 9999 (quemado), no entra aquí.
                 if item['usage_today'] < limite_seguro:
                     valid_candidates.append(item)
             
@@ -87,22 +88,28 @@ class AIManager:
         Suma +1 al contador de uso de ese modelo específico.
         """
         try:
-            # Primero obtenemos el valor actual para sumar 1 (o usamos rpc si creamos función SQL, 
-            # pero por ahora hacemos lectura-escritura simple para no complicarte con más SQL)
-            
-            # Forma simple: llamar a un RPC de Supabase es lo ideal para atomicidad,
-            # pero aquí haremos un update directo por simplicidad.
-            
             # 1. Leer dato actual
             data = supabase.table('ai_models').select('usage_today').eq('id', model_id).single().execute()
             current_usage = data.data['usage_today'] or 0
             
             # 2. Actualizar
             supabase.table('ai_models').update({'usage_today': current_usage + 1}).eq('id', model_id).execute()
-            # print(f"📈 Contador actualizado para modelo {model_id}")
             
         except Exception as e:
             print(f"Error actualizando contador de uso: {e}")
+
+    # --- NUEVA FUNCIÓN VITAL ---
+    def report_failure(self, model_id):
+        """
+        Si una IA falla (Error 429), la marcamos como MUERTA por hoy (9999).
+        Así el sistema buscará otra inmediatamente.
+        """
+        try:
+            print(f"🚨 REPORTANDO MODELO CAÍDO ID: {model_id} - CAMBIANDO A OTRO...")
+            # Le ponemos 9999 para que _find_available_key lo ignore al instante
+            supabase.table('ai_models').update({'usage_today': 9999}).eq('id', model_id).execute()
+        except Exception as e:
+            print(f"Error reportando fallo de IA: {e}")
 
 # Instancia global para importar en otros archivos
 brain = AIManager()
