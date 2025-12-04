@@ -13,7 +13,6 @@ psycopg2-binary
 supabase
 
 # === Herramientas Externas y Varios ===
-# (Puedes mantener las otras si las usas, pero para el chat, solo necesitas lo de arriba)
 apify-client
 gspread
 oauth2client 
