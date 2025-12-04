@@ -6,8 +6,14 @@ import time
 from apify_client import ApifyClient
 import psycopg2
 from psycopg2.extras import Json
-import google.generativeai as genai
 from dotenv import load_dotenv
+
+# --- IMPORTACIÓN DEL GERENTE DE IA (EL ÚNICO CAMBIO PARA ROTACIÓN) ---
+try:
+    from ai_manager import brain
+except ImportError:
+    brain = None
+    print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. La IA no funcionará.")
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
@@ -15,22 +21,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - CAZADOR - %(leveln
 
 APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# --- CONFIGURACIÓN DE IA BLINDADA ---
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    # === CAMBIO CRÍTICO AQUÍ: Usamos 2.5 Flash para evitar bloqueo 429 ===
-    MODELO_IA = "models/gemini-2.5-flash"
-else:
-    MODELO_IA = None
-
-# --- CONSTANTES FINANCIERAS (EL BOZAL) ---
+# --- CONSTANTES FINANCIERAS (EL BOZAL) - INTACTO ---
 PRESUPUESTO_POR_PROSPECTO_CONTRATADO = 4.0  # Dólares USD
 COSTO_ESTIMADO_APIFY_POR_1000 = 5.0         # Costo promedio x 1000 leads crudos
 MULTIPLICADOR_RAW_LEADS = 200               # Cuántos leads crudos caben en 1 dólar (aprox)
 
-# --- 1. CEREBRO FINANCIERO ---
+# --- 1. CEREBRO FINANCIERO (INTACTO) ---
 
 def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
     """
@@ -86,17 +83,18 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
     finally:
         if conn: conn.close()
 
-# --- 2. CEREBRO ESTRATÉGICO (IA + FALLBACK) ---
+# --- 2. CEREBRO ESTRATÉGICO (MODIFICADO PARA USAR AI_MANAGER) ---
 
 def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
     """
-    Intenta mejorar la búsqueda con IA. Si la IA falla,
-    devuelve la búsqueda original sin romper el programa.
+    Intenta mejorar la búsqueda con IA usando ROTACIÓN DE LLAVES.
+    Si falla, devuelve la búsqueda original.
     """
-    if not MODELO_IA or not GOOGLE_API_KEY:
+    # Verificamos si el Manager está cargado (Sustituye a la verificación de API KEY fija)
+    if not brain:
         return busqueda_original
 
-    logging.info("🧠 IA: Optimizando búsqueda...")
+    logging.info("🧠 IA: Optimizando búsqueda (Usando Rotación)...")
     conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
@@ -117,21 +115,28 @@ def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
         SOLO RESPONDE LA FRASE. Ej: "Tiendas de zapatos en Madrid"
         """
 
-        model = genai.GenerativeModel(MODELO_IA)
+        # --- CAMBIO CLAVE: PEDIR MODELO AL MANAGER ---
+        # Pedimos un modelo rápido ('velocidad') ya que es solo una frase corta.
+        model, model_id = brain.get_optimal_model(task_type="velocidad")
+        
         response = model.generate_content(prompt)
+        
+        # REGISTRAMOS EL USO
+        brain.register_usage(model_id)
+        
         busqueda_optimizada = response.text.strip().replace('"', '')
 
         logging.info(f"🎯 IA: '{busqueda_original}' -> '{busqueda_optimizada}'")
         return busqueda_optimizada
 
     except Exception as e:
-        # AQUI ESTA LA PROTECCION: Si la IA falla, NO detenemos el programa.
-        logging.warning(f"⚠️ IA Falló. Usando búsqueda original. Error: {e}")
+        # AQUI ESTA LA PROTECCION: Si la IA falla (incluso rotando), NO detenemos el programa.
+        logging.warning(f"⚠️ IA Falló o se agotaron las llaves. Usando búsqueda original. Error: {e}")
         return busqueda_original
     finally:
         if conn: conn.close()
 
-# --- 3. CONSULTA AL ARSENAL ---
+# --- 3. CONSULTA AL ARSENAL (INTACTO) ---
 
 def consultar_arsenal(plataforma_objetivo, tipo_producto):
     conn = None
@@ -158,7 +163,7 @@ def consultar_arsenal(plataforma_objetivo, tipo_producto):
     finally:
         if conn: conn.close()
 
-# --- 4. PREPARAR INPUT (AHORRO APIFY) ---
+# --- 4. PREPARAR INPUT (INTACTO) ---
 
 def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_extra):
     if not ubicacion or str(ubicacion).lower() == "none" or ubicacion == "":
@@ -200,7 +205,7 @@ def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_ext
     base_input.update(reglas_ahorro)
     return base_input
 
-# --- 5. FILTRO Y NORMALIZACIÓN ---
+# --- 5. FILTRO Y NORMALIZACIÓN (INTACTO) ---
 
 def validar_y_normalizar(item, plataforma, bot_id):
     datos = {
@@ -232,7 +237,7 @@ def validar_y_normalizar(item, plataforma, bot_id):
     if not datos["business_name"]: return None
     return datos
 
-# --- 6. EJECUCIÓN PRINCIPAL ---
+# --- 6. EJECUCIÓN PRINCIPAL (INTACTO) ---
 
 def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Maps", tipo_producto="Tangible", limite_diario_contratado=4):
     
@@ -244,7 +249,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
 
     logging.info(f"🚀 CAZANDO: {cantidad_a_cazar} prospectos | Campaña: {campana_id}")
 
-    # B. Optimización IA (Con protección anti-crash)
+    # B. Optimización IA (Con protección anti-crash y AHORA CON ROTACIÓN)
     busqueda_final = optimizar_busqueda_con_ia(campana_id, prompt_busqueda, plataforma)
     time.sleep(1)
 
