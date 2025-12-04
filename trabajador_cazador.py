@@ -85,17 +85,22 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
 
 # --- 2. CEREBRO ESTRATÉGICO (MODIFICADO PARA USAR AI_MANAGER) ---
 
+# ... (El resto del código arriba sigue igual) ...
+
+# --- 2. CEREBRO ESTRATÉGICO (CON REPORTE DE FALLOS) ---
+
 def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
     """
-    Intenta mejorar la búsqueda con IA usando ROTACIÓN DE LLAVES.
-    Si falla, devuelve la búsqueda original.
+    Intenta mejorar la búsqueda con IA usando ROTACIÓN.
+    Si falla, REPORTA EL FALLO al Manager para que cambie de llave.
     """
-    # Verificamos si el Manager está cargado (Sustituye a la verificación de API KEY fija)
     if not brain:
         return busqueda_original
 
-    logging.info("🧠 IA: Optimizando búsqueda (Usando Rotación)...")
+    logging.info("🧠 IA: Optimizando búsqueda...")
     conn = None
+    model_id = None  # Guardamos el ID para poder reportarlo si falla
+
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
@@ -111,30 +116,34 @@ def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
         prompt = f"""
         CONTEXTO: Producto: {producto}, Target: {target}, Misión: {mision}, Plataforma: {plataforma}
         INTENCIÓN: "{busqueda_original}"
-        TAREA: Genera UNA frase de búsqueda optimizada para encontrar compradores reales en Google Maps.
-        SOLO RESPONDE LA FRASE. Ej: "Tiendas de zapatos en Madrid"
+        TAREA: Genera UNA frase de búsqueda optimizada.
+        SOLO RESPONDE LA FRASE.
         """
 
-        # --- CAMBIO CLAVE: PEDIR MODELO AL MANAGER ---
-        # Pedimos un modelo rápido ('velocidad') ya que es solo una frase corta.
+        # 1. PEDIMOS CEREBRO
         model, model_id = brain.get_optimal_model(task_type="velocidad")
         
+        # 2. INTENTAMOS PENSAR
         response = model.generate_content(prompt)
         
-        # REGISTRAMOS EL USO
+        # 3. SI ÉXITO -> REGISTRAMOS USO
         brain.register_usage(model_id)
         
         busqueda_optimizada = response.text.strip().replace('"', '')
-
         logging.info(f"🎯 IA: '{busqueda_original}' -> '{busqueda_optimizada}'")
         return busqueda_optimizada
 
     except Exception as e:
-        # AQUI ESTA LA PROTECCION: Si la IA falla (incluso rotando), NO detenemos el programa.
-        logging.warning(f"⚠️ IA Falló o se agotaron las llaves. Usando búsqueda original. Error: {e}")
+        # 4. SI FALLO (ERROR 429 u otro) -> REPORTAMOS LA MUERTE
+        logging.warning(f"⚠️ IA Falló. Reportando al Manager. Error: {e}")
+        if model_id:
+            brain.report_failure(model_id) # <--- AQUÍ ESTÁ LA MAGIA
+            
         return busqueda_original
     finally:
         if conn: conn.close()
+
+# ... (El resto del código abajo sigue igual) ...
 
 # --- 3. CONSULTA AL ARSENAL (INTACTO) ---
 
