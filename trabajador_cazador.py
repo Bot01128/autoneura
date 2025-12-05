@@ -15,13 +15,20 @@ except ImportError:
     brain = None
     print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. La IA no funcionará.")
 
-print("!!! ESTOY CORRIENDO LA VERSION NUEVA V3 - BLINDADA !!!")
+# --- IMPORTACIÓN DEL GERENTE DE SCRAPERS (NUEVO) ---
+try:
+    from scraper_manager import scraper_brain
+except ImportError:
+    scraper_brain = None
+    print("⚠️ ADVERTENCIA: scraper_manager.py no encontrado. Apify no funcionará.")
+
+print("!!! ESTOY CORRIENDO LA VERSION NUEVA V4 - APIFY BLINDADO !!!")
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - CAZADOR - %(levelname)s - %(message)s')
 
-APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
+# APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN") # <-- COMENTADO: Ya no usamos llave fija
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # --- CONSTANTES FINANCIERAS (INTACTAS) ---
@@ -175,7 +182,7 @@ def validar_y_normalizar(item, plataforma, bot_id):
     if not datos["business_name"]: return None
     return datos
 
-# --- 6. EJECUCIÓN PRINCIPAL (INTACTO) ---
+# --- 6. EJECUCIÓN PRINCIPAL (CONEXIÓN CON APIFY MANAGER) ---
 def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Maps", tipo_producto="Tangible", limite_diario_contratado=4):
     cantidad_a_cazar = verificar_presupuesto_mensual(campana_id, limite_diario_contratado)
     if cantidad_a_cazar <= 0:
@@ -189,8 +196,25 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
     bot_info = consultar_arsenal(plataforma, tipo_producto)
     actor_id = bot_info["actor_id"]
     
+    # --- CAMBIO AQUÍ: OBTENER LLAVE DINÁMICA ---
+    apify_key_to_use = None
+    if scraper_brain:
+        # Pedimos llave al manager (él revisa saldo y rota)
+        apify_key_to_use = scraper_brain.get_valid_key('apify')
+        if not apify_key_to_use:
+            logging.error("❌ CAZADOR ABORTADO: No hay llaves de Apify con saldo.")
+            return False
+    else:
+        # Fallback de emergencia (si no hay manager, usa variable de entorno, pero ya no debería pasar)
+        apify_key_to_use = os.environ.get("APIFY_API_TOKEN")
+
+    if not apify_key_to_use:
+        logging.error("❌ Sin llave de Apify.")
+        return False
+
     try:
-        client = ApifyClient(APIFY_TOKEN)
+        # Usamos la llave obtenida
+        client = ApifyClient(apify_key_to_use)
         run_input = preparar_input_blindado(actor_id, busqueda_final, ubicacion, cantidad_a_cazar, bot_info["config_extra"])
         logging.info(f"📡 Apify Run ({actor_id}) -> '{busqueda_final}'")
         run = client.actor(actor_id).call(run_input=run_input)
@@ -221,6 +245,9 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
         return True
     except Exception as e:
         logging.critical(f"🔥 Error Crítico Cazador: {e}")
+        # Si falla por autenticación, avisamos al manager
+        if scraper_brain and "401" in str(e):
+            scraper_brain.report_execution_failure(apify_key_to_use)
         return False
 
 # =========================================================================
