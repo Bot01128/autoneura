@@ -10,6 +10,13 @@ from psycopg2.extras import Json
 import google.generativeai as genai
 from dotenv import load_dotenv
 
+# --- CONEXIÓN AL CEREBRO ROTATIVO (AGREGADO PARA CORREGIR 429) ---
+try:
+    from ai_manager import brain
+except ImportError:
+    brain = None
+    print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. El Orquestador será menos inteligente.")
+
 # --- IMPORTACIÓN DE TUS EMPLEADOS (LOS TRABAJADORES) ---
 try:
     # Trabajadores tipo "Función Única" (Cazador y Espía)
@@ -40,15 +47,12 @@ logging.basicConfig(
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# Configuración del Cerebro Estratégico
-if GOOGLE_API_KEY:
+# Configuración del Cerebro Estratégico (MODIFICADO: YA NO USA LA LLAVE FIJA LITE)
+# El control ahora lo tiene ai_manager.py para evitar bloqueos.
+if not brain and GOOGLE_API_KEY:
+    # Fallback solo si brain falla
     genai.configure(api_key=GOOGLE_API_KEY)
-    # USO MODELO LITE PARA EVITAR ERROR 429 Y AGUANTAR LA CARGA
-    MODELO_ESTRATEGICO_ID = 'models/gemini-2.0-flash-lite-preview-02-05'
-    logging.info(f"🧠 Cerebro conectado usando: {MODELO_ESTRATEGICO_ID}")
-else:
-    logging.warning("⚠️ CEREBRO DESCONECTADO: No hay API Key de Google. El Orquestador será menos inteligente.")
-    MODELO_ESTRATEGICO_ID = None
+    logging.warning("⚠️ Usando configuración legacy de IA (Sin rotación).")
 
 class OrquestadorSupremo:
     def __init__(self):
@@ -140,6 +144,7 @@ class OrquestadorSupremo:
     def planificar_estrategia_caza(self, descripcion_producto, audiencia_objetivo, tipo_producto):
         """
         Usa IA para decidir la MEJOR plataforma del arsenal disponible y la Query inicial.
+        MODIFICADO: Usa ai_manager para evitar bloqueo 429.
         """
         # 1. Obtener herramientas reales disponibles
         plataformas_disponibles = self.obtener_arsenal_disponible()
@@ -148,11 +153,14 @@ class OrquestadorSupremo:
         platform_default = plataformas_disponibles[0] if plataformas_disponibles else "Google Maps"
         query_default = audiencia_objetivo
 
-        if not MODELO_ESTRATEGICO_ID:
+        if not brain:
             return query_default, platform_default
 
+        model_id = None # Para reportar fallos
+
         try:
-            modelo_estrategico = genai.GenerativeModel(MODELO_ESTRATEGICO_ID)
+            # CAMBIO: Pedimos modelo INTELIGENTE (Pro) al Manager
+            modelo_estrategico, model_id = brain.get_optimal_model(task_type="inteligencia")
             
             prompt = f"""
             Eres el Director de Estrategia de una agencia de Lead Generation.
@@ -177,6 +185,10 @@ class OrquestadorSupremo:
             """
             
             res = modelo_estrategico.generate_content(prompt)
+            
+            # CAMBIO: Registramos uso exitoso
+            brain.register_usage(model_id)
+            
             texto_limpio = res.text.replace("```json", "").replace("```", "").strip()
             data = json.loads(texto_limpio)
             
@@ -190,7 +202,10 @@ class OrquestadorSupremo:
             return data.get("query", query_default), platform_elegida
 
         except Exception as e:
-            logging.error(f"⚠️ Fallo en estrategia IA (Usando default): {e}")
+            logging.error(f"⚠️ Fallo en estrategia IA: {e}")
+            # CAMBIO: Si falla con error 429, reportamos al Manager
+            if model_id and "429" in str(e):
+                brain.report_failure(model_id)
             return query_default, platform_default
 
     # ==============================================================================
@@ -252,7 +267,7 @@ class OrquestadorSupremo:
                 if cazados_hoy < limite_diario:
                     logging.info(f"📊 {nombre}: Faltan prospectos ({cazados_hoy}/{limite_diario}). Planificando...")
 
-                    # 1. PENSAR ESTRATEGIA (IA LEE LA DB DE BOTS)
+                    # 1. PENSAR ESTRATEGIA (IA LEE LA DB DE BOTS Y ROTA LLAVES)
                     query_optimizada, plataforma = self.planificar_estrategia_caza(prod, audiencia, tipo_prod)
                     
                     # 2. LANZAR CAZADOR (Thread)
@@ -330,7 +345,7 @@ class OrquestadorSupremo:
     # ==============================================================================
 
     def iniciar_turno(self):
-        logging.info(">>> 🤖 ORQUESTADOR SUPREMO (CONECTADO A ARSENAL & IA LITE) 🤖 <<<")
+        logging.info(">>> 🤖 ORQUESTADOR SUPREMO (CONECTADO A ARSENAL & BRAIN ROTATIVO) 🤖 <<<")
         
         # --- HILOS PERMANENTES (DAEMONS) ---
         logging.info("🚀 Iniciando Hilo Permanente: TRABAJADOR ANALISTA")
