@@ -7,6 +7,13 @@ from psycopg2.extras import Json
 import google.generativeai as genai
 from dotenv import load_dotenv
 
+# --- CONEXIÓN AL CEREBRO ROTATIVO (NUEVO) ---
+try:
+    from ai_manager import brain
+except ImportError:
+    brain = None
+    print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. El Persuasor no podrá rotar llaves.")
+
 # --- CONFIGURACIÓN ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - PERSUASOR - %(levelname)s - %(message)s')
@@ -14,13 +21,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - PERSUASOR - %(leve
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# --- IA BLINDADA (MODELO LITE) ---
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    # Usamos el modelo resistente para alto volumen de redacción
-    MODELO_IA = "models/gemini-2.0-flash-lite-preview-02-05"
-else:
-    MODELO_IA = None
+# --- IA BLINDADA (YA NO ES FIJA) ---
+# Eliminamos la configuración hardcodeada que causaba el bloqueo 429.
+# Ahora el control lo tiene ai_manager.
 
 # --- CEREBRO COPYWRITER ---
 
@@ -29,7 +32,7 @@ def generar_estrategia_prenido(prospecto, campana, analisis):
     Genera el contenido de las DOS CAJAS (Valor + Pitch) usando 
     psicología de ventas adaptada al dolor específico.
     """
-    if not MODELO_IA: return None
+    if not brain: return None
 
     # Extraemos datos clave
     nombre_cliente = prospecto.get('business_name', 'Emprendedor')
@@ -44,8 +47,11 @@ def generar_estrategia_prenido(prospecto, campana, analisis):
     mision = campana.get('mission_statement', 'Ayudar a empresas')
     tono = campana.get('tone_voice', 'Profesional y Empático')
 
+    model_id = None # Para reportar fallos
+
     try:
-        model = genai.GenerativeModel(MODELO_IA)
+        # 1. PEDIMOS CEREBRO INTELIGENTE (Pro/Inteligencia para escribir buen copy)
+        model, model_id = brain.get_optimal_model(task_type="inteligencia")
         
         prompt = f"""
         ACTÚA COMO: Un Consultor de Negocios Senior y Copywriter de Respuesta Directa.
@@ -88,15 +94,21 @@ def generar_estrategia_prenido(prospecto, campana, analisis):
         """
         
         respuesta = model.generate_content(prompt)
+        
+        # 2. REGISTRAMOS EL USO (Si funcionó)
+        brain.register_usage(model_id)
+        
         texto_limpio = respuesta.text.replace("```json", "").replace("```", "").strip()
         return json.loads(texto_limpio)
 
     except Exception as e:
         logging.error(f"⚠️ Error generando copy IA: {e}")
-        if "429" in str(e): raise e # Re-lanzar si es cuota para pausar
+        # 3. REPORTE DE FALLO (Botón de Pánico)
+        if model_id and "429" in str(e):
+            brain.report_failure(model_id)
         return None
 
-# --- SIMULACIÓN DE ENVÍO ---
+# --- SIMULACIÓN DE ENVÍO (INTACTO) ---
 
 def enviar_mensaje_multicanal(prospecto, contenido):
     """
@@ -125,10 +137,10 @@ def enviar_mensaje_multicanal(prospecto, contenido):
     logging.info(f"   > Caja 2: {contenido['caja_2_titulo']}")
     return True
 
-# --- CICLO DE TRABAJO ---
+# --- CICLO DE TRABAJO (INTACTO) ---
 
 def trabajar_persuasor():
-    logging.info(f"🎩 PERSUASOR ACTIVO (Modelo: {MODELO_IA})")
+    logging.info(f"🎩 PERSUASOR ACTIVO (Conectado a Brain Rotativo)")
     
     while True:
         conn = None
@@ -185,8 +197,6 @@ def trabajar_persuasor():
                         
                         if enviado:
                             # 4. ACTUALIZAR DB
-                            # Guardamos el JSON generado para mostrarlo en el Dashboard si hace falta
-                            # Cambiamos estado a 'persuadido' (Intento realizado)
                             cur.execute("""
                                 UPDATE prospects 
                                 SET generated_copy = %s,
@@ -206,8 +216,8 @@ def trabajar_persuasor():
 
                 except Exception as e_ia:
                     if "429" in str(e_ia):
-                        logging.warning("🛑 Límite de IA (429). Durmiendo 45s...")
-                        time.sleep(45)
+                        logging.warning("🛑 Límite de IA (429) en Persuasor. El Manager ya fue notificado.")
+                        time.sleep(10) # Espera corta, el Manager cambiará de llave
                     else:
                         logging.error(f"Error en {p_nombre}: {e_ia}")
 
