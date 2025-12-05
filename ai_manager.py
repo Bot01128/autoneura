@@ -99,21 +99,39 @@ class AIManager:
 
     def report_failure(self, model_id, error_message=""):
         """
-        SISTEMA DE AUTO-DEPURACIÓN INTELIGENTE:
-        - Si es 429 (Límite): Bloquea por HOY (9999).
-        - Si es 404 (No existe): Bloquea PARA SIEMPRE (99999).
+        SISTEMA DE AUTO-DEPURACIÓN Y AUTO-DEGRADACIÓN:
+        1. 404 (No existe) -> Bloqueo ETERNO.
+        2. 429 (Límite) -> Bloqueo DIARIO + Chequeo de Finanzas.
         """
         try:
             hoy_str = str(date.today())
             err_str = str(error_message).lower()
             
-            nuevo_uso = 9999 # Por defecto: Bloqueo diario (429)
+            nuevo_uso = 9999 # Por defecto: Bloqueo diario
             
             if "404" in err_str or "not found" in err_str:
                 print(f"💀 MODELO FANTASMA DETECTADO ID: {model_id}. Eliminando de la rotación permanentemente.")
-                nuevo_uso = 99999 # Bloqueo eterno (simbólico, supera cualquier límite diario)
-            else:
+                nuevo_uso = 99999 
+            
+            elif "429" in err_str or "quota" in err_str:
                 print(f"🚨 LÍMITE ALCANZADO ID: {model_id}. Bloqueando por hoy...")
+                
+                # --- AQUÍ ESTÁ LA NUEVA MAGIA: AUDITORÍA FINANCIERA ---
+                try:
+                    # Averiguamos de quién es esta llave y qué tipo de cuenta dice ser
+                    info_vault = supabase.table('ai_models').select('vault_id, ai_vault(account_type)').eq('id', model_id).single().execute()
+                    
+                    if info_vault.data:
+                        vault_id = info_vault.data.get('vault_id')
+                        tipo_cuenta = info_vault.data.get('ai_vault', {}).get('account_type')
+                        
+                        # Si dice ser PAGA pero falló por cuota, es mentira: LA BAJAMOS A GRATIS
+                        if tipo_cuenta == 'PAID':
+                            print(f"📉 DETECTADO: Cuenta 'PAID' falló por saldo. Degradando a 'FREE' automáticamente.")
+                            supabase.table('ai_vault').update({'account_type': 'FREE'}).eq('id', vault_id).execute()
+                except Exception as finance_e:
+                    print(f"Error en auditoría financiera automática: {finance_e}")
+                # -----------------------------------------------------
 
             supabase.table('ai_models').update({
                 'usage_today': nuevo_uso,
