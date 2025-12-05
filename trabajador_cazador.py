@@ -297,3 +297,4 @@ if __name__ == "__main__":
         procesar_prospectos_pendientes()
         
         time.sleep(60) # Descanso de 1 minuto
+# Actualizacion forzada
