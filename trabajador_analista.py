@@ -9,6 +9,13 @@ import google.generativeai as genai
 from psycopg2.extras import Json
 from dotenv import load_dotenv
 
+# --- CONEXIÓN AL CEREBRO ROTATIVO (NUEVO) ---
+try:
+    from ai_manager import brain
+except ImportError:
+    brain = None
+    print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. El Analista no podrá pensar.")
+
 # --- CONFIGURACIÓN ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - ANALISTA - %(levelname)s - %(message)s')
@@ -16,17 +23,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - ANALISTA - %(level
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# --- CORRECCIÓN CRÍTICA DE MODELO ---
-# Usamos el modelo Lite resistente para evitar Error 429 (Quota Exceeded)
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    # CAMBIO REALIZADO AQUÍ: Versión Lite
-    model = genai.GenerativeModel('models/gemini-2.0-flash-lite-preview-02-05')
-else:
-    logging.warning("⚠️ Sin API Key de Gemini en Analista")
-    model = None
+# --- IA BLINDADA (YA NO ES FIJA) ---
+# El control ahora lo tiene ai_manager.
 
-# --- 1. LECTURA DE WEB (OJOS DEL ANALISTA) ---
+# --- 1. LECTURA DE WEB (OJOS DEL ANALISTA - INTACTO) ---
 
 def escanear_web_simple(url):
     """
@@ -55,10 +55,10 @@ def escanear_web_simple(url):
         logging.warning(f"No se pudo leer la web {url}: {e}")
         return ""
 
-# --- 2. EL PSICÓLOGO (GEMINI) ---
+# --- 2. EL PSICÓLOGO (GEMINI ROTATIVO) ---
 
 def realizar_psicoanalisis(prospecto, campana, texto_web):
-    if not model: return None
+    if not brain: return None
 
     # Prompt optimizado para Venta Consultiva
     prompt = f"""
@@ -99,106 +99,116 @@ def realizar_psicoanalisis(prospecto, campana, texto_web):
     }}
     """
 
+    model_id = None # Para reportar fallos
     try:
+        # CAMBIO: Pedimos cerebro RÁPIDO (Flash) al Manager
+        model, model_id = brain.get_optimal_model(task_type="velocidad")
+        
         respuesta = model.generate_content(prompt)
+        
+        # CAMBIO: Registramos uso
+        brain.register_usage(model_id)
+        
         texto_limpio = respuesta.text.replace("```json", "").replace("```", "").strip()
         return json.loads(texto_limpio)
+
     except Exception as e:
         logging.error(f"Error interpretando a Gemini: {e}")
+        # CAMBIO: Reportamos muerte si es 429
+        if model_id and "429" in str(e):
+            brain.report_failure(model_id)
         return None
 
-# --- 3. FUNCIÓN PRINCIPAL DEL TRABAJADOR ---
+# --- 3. FUNCIÓN PRINCIPAL DEL TRABAJADOR (MODIFICADO PARA SECUENCIA) ---
 
 def trabajar_analista():
-    logging.info("🧠 Analista Iniciado (Modelo Lite Resistente).")
+    # Eliminamos el while True para que funcione en la cadena del Orquestador
+    logging.info("🧠 Analista Iniciado (Modo Secuencial - Brain Rotativo).")
     
-    while True:
-        conn = None
-        try:
-            conn = psycopg2.connect(DATABASE_URL)
-            cur = conn.cursor()
+    conn = None
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
 
-            # --- SELECCIÓN OPORTUNISTA ---
-            # Busca:
-            # 1. 'espiado' (El Espía trajo datos)
-            # 2. 'cazado' CON EMAIL (El Cazador trajo datos directos)
-            query = """
-                SELECT 
-                    p.id, p.business_name, p.website_url, p.raw_data, p.captured_email,
-                    c.id as campaign_id, c.product_description, c.ticket_price, 
-                    c.red_flags, c.pain_points_defined, c.competitors, c.tone_voice
-                FROM prospects p
-                JOIN campaigns c ON p.campaign_id = c.id
-                WHERE p.status = 'espiado' 
-                OR (p.status = 'cazado' AND (p.captured_email IS NOT NULL OR p.phone_number IS NOT NULL))
-                LIMIT 5;
-            """
-            cur.execute(query)
-            lote = cur.fetchall()
+        # --- SELECCIÓN OPORTUNISTA ---
+        # Busca:
+        # 1. 'espiado' (El Espía trajo datos)
+        # 2. 'cazado' CON EMAIL (El Cazador trajo datos directos)
+        query = """
+            SELECT 
+                p.id, p.business_name, p.website_url, p.raw_data, p.captured_email,
+                c.id as campaign_id, c.product_description, c.ticket_price, 
+                c.red_flags, c.pain_points_defined, c.competitors, c.tone_voice
+            FROM prospects p
+            JOIN campaigns c ON p.campaign_id = c.id
+            WHERE p.status = 'espiado' 
+            OR (p.status = 'cazado' AND (p.captured_email IS NOT NULL OR p.phone_number IS NOT NULL))
+            LIMIT 5;
+        """
+        cur.execute(query)
+        lote = cur.fetchall()
 
-            if not lote:
-                logging.info("💤 Nada que analizar. Durmiendo 60s...")
-                time.sleep(60)
-                continue
+        if not lote:
+            logging.info("💤 Nada que analizar en este turno.")
+            return # Termina el turno y devuelve el control al Orquestador
 
-            logging.info(f"🧠 Procesando lote de {len(lote)} prospectos...")
+        logging.info(f"🧠 Procesando lote de {len(lote)} prospectos...")
 
-            for fila in lote:
-                # Mapeo de datos
-                prospecto = {
-                    "id": fila[0], "business_name": fila[1], "website_url": fila[2], 
-                    "raw_data": fila[3], "email": fila[4]
-                }
-                campana = {
-                    "product_description": fila[6], "ticket_price": fila[7],
-                    "red_flags": fila[8], "pain_points_defined": fila[9],
-                    "competitors": fila[10], "tone_voice": fila[11]
-                }
+        for fila in lote:
+            # Mapeo de datos
+            prospecto = {
+                "id": fila[0], "business_name": fila[1], "website_url": fila[2], 
+                "raw_data": fila[3], "email": fila[4]
+            }
+            campana = {
+                "product_description": fila[6], "ticket_price": fila[7],
+                "red_flags": fila[8], "pain_points_defined": fila[9],
+                "competitors": fila[10], "tone_voice": fila[11]
+            }
 
-                # 1. Escanear
-                texto_web = ""
-                if prospecto["website_url"]:
-                    texto_web = escanear_web_simple(prospecto["website_url"])
-                
-                # 2. Analizar
-                analisis_ia = realizar_psicoanalisis(prospecto, campana, texto_web)
+            # 1. Escanear
+            texto_web = ""
+            if prospecto["website_url"]:
+                texto_web = escanear_web_simple(prospecto["website_url"])
+            
+            # 2. Analizar (Ahora usa el Brain Rotativo)
+            analisis_ia = realizar_psicoanalisis(prospecto, campana, texto_web)
 
-                # 3. Decidir
-                nuevo_estado = "analizado_exitoso"
-                pain_points_json = None
+            # 3. Decidir
+            nuevo_estado = "analizado_exitoso"
+            pain_points_json = None
 
-                if not analisis_ia:
-                    logging.warning(f"⚠️ Fallo análisis IA ID {prospecto['id']}")
-                    time.sleep(2) 
-                    continue 
-
-                if analisis_ia.get("veredicto") == "DESCARTADO":
-                    nuevo_estado = "descartado"
-                    logging.info(f"🚫 DESCARTADO ID {prospecto['id']}: {analisis_ia.get('razon_descarte')}")
-                else:
-                    logging.info(f"✅ APROBADO ID {prospecto['id']}")
-                    pain_points_json = Json(analisis_ia)
-
-                # 4. Guardar
-                cur.execute("""
-                    UPDATE prospects 
-                    SET status = %s,
-                        pain_points = %s,
-                        updated_at = NOW()
-                    WHERE id = %s
-                """, (nuevo_estado, pain_points_json, prospecto['id']))
-                conn.commit()
-                
-                # Pausa breve para no saturar
+            if not analisis_ia:
+                logging.warning(f"⚠️ Fallo análisis IA ID {prospecto['id']}")
                 time.sleep(2) 
+                continue 
 
-            cur.close()
+            if analisis_ia.get("veredicto") == "DESCARTADO":
+                nuevo_estado = "descartado"
+                logging.info(f"🚫 DESCARTADO ID {prospecto['id']}: {analisis_ia.get('razon_descarte')}")
+            else:
+                logging.info(f"✅ APROBADO ID {prospecto['id']}")
+                pain_points_json = Json(analisis_ia)
 
-        except Exception as e:
-            logging.error(f"🔥 Error Crítico Analista: {e}")
-            time.sleep(30)
-        finally:
-            if conn: conn.close()
+            # 4. Guardar
+            cur.execute("""
+                UPDATE prospects 
+                SET status = %s,
+                    pain_points = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+            """, (nuevo_estado, pain_points_json, prospecto['id']))
+            conn.commit()
+            
+            # Pausa breve para no saturar
+            time.sleep(2) 
+
+        cur.close()
+
+    except Exception as e:
+        logging.error(f"🔥 Error Crítico Analista: {e}")
+    finally:
+        if conn: conn.close()
 
 if __name__ == "__main__":
     trabajar_analista()

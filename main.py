@@ -22,6 +22,13 @@ try:
 except ImportError:
     TrabajadorNutridor = None
 
+# --- NUEVO: CONEXIÓN AL GERENTE DE IA (ROTACIÓN DE LLAVES) ---
+try:
+    from ai_manager import brain
+except ImportError:
+    brain = None
+    print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. El sistema de rotación no funcionará.")
+
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 
@@ -57,6 +64,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 dashboard_brain = None
 nutridor_brain = None
 
+# Configuración Legacy para el Nutridor (se actualizará en el siguiente paso)
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
     if TrabajadorNutridor:
@@ -70,12 +78,12 @@ def get_db_connection():
         return None
 
 # ==========================================
-# CEREBRO ARQUITECTO (ADMIN & CLIENTE) - VERSIÓN GEMINI 2.5 FLASH
+# CEREBRO ARQUITECTO (ACTUALIZADO CON ROTACIÓN DE LLAVES)
 # ==========================================
 class CerebroArquitecto:
-    def __init__(self, api_key):
-        # USAMOS LA VERSIÓN ESTABLE Y RÁPIDA
-        self.model = genai.GenerativeModel('models/gemini-2.5-flash')
+    def __init__(self):
+        # YA NO SE INICIALIZA CON UNA LLAVE FIJA.
+        # SE PIDE AL ai_manager CADA VEZ QUE SE PIENSA.
         
         # ESQUEMA PARA SQL
         self.schema = """
@@ -105,7 +113,15 @@ class CerebroArquitecto:
         if not conn:
             return "Error crítico: No hay conexión a la base de datos."
         
+        # 1. SOLICITAR CEREBRO AL MANAGER (ROTACIÓN)
+        if not brain:
+            return "Error: El sistema de rotación de IA (ai_manager) no está activo."
+            
         try:
+            # Pedimos un modelo 'inteligente' (Pro) o 'general' para escribir SQL bien
+            # Esto buscará en Supabase qué llave tiene saldo/cupo
+            model, model_id = brain.get_optimal_model(task_type="inteligencia")
+            
             # PASO 1: Generar SQL
             prompt_sql = f"""
             Genera SOLO un código SQL (PostgreSQL) para responder: "{pregunta_usuario}"
@@ -116,7 +132,10 @@ class CerebroArquitecto:
             3. Si preguntan finanzas, usa la tabla finance_logs.
             """
             
-            response_sql = self.model.generate_content(prompt_sql)
+            response_sql = model.generate_content(prompt_sql)
+            # REGISTRAMOS EL USO (SEMAFORO)
+            brain.register_usage(model_id)
+            
             sql_query = response_sql.text.strip().replace('```sql', '').replace('```', '').replace('\n', ' ')
             
             # Seguridad
@@ -134,21 +153,23 @@ class CerebroArquitecto:
             if not resultados:
                 return f"Consulté la base de datos y no encontré datos para esa pregunta."
 
-            # PASO 3: Interpretar Resultados
+            # PASO 3: Interpretar Resultados (Reutilizamos el modelo o pedimos otro)
             prompt_final = f"""
             ACTÚA COMO ANALISTA DE NEGOCIOS.
             PREGUNTA: "{pregunta_usuario}"
             DATOS (SQL): Columnas {nombres_columnas}, Filas {resultados}
             RESPONDE: Directo, profesional, usa signo $ si es dinero.
             """
-            response_final = self.model.generate_content(prompt_final)
+            response_final = model.generate_content(prompt_final)
+            brain.register_usage(model_id) # Cobramos el segundo uso
+            
             return response_final.text
 
         except Exception as e:
-            return f"Error técnico: {str(e)}"
+            return f"Error técnico o de IA: {str(e)}"
 
-# Instancia global del Arquitecto
-arquitecto_brain = CerebroArquitecto(GOOGLE_API_KEY) if GOOGLE_API_KEY else None
+# Instancia global del Arquitecto (Nueva versión sin llave fija)
+arquitecto_brain = CerebroArquitecto()
 
 
 # --- RUTAS PRINCIPALES ---
@@ -353,14 +374,14 @@ def generar_nido_y_entrar():
                 return render_template('nido_template.html', 
                                      nombre_negocio=nombre_negocio, 
                                      token_sesion=token_sesion,
-                                     contenido=contenido, # ¡ESTO ES LO IMPORTANTE!
+                                     contenido=contenido, 
                                      titulo_personalizado=f"Bienvenido {nombre_negocio}")
             return "Error al generar el nido", 404
     finally:
         conn.close()
 
 # ==========================================================
-# CORRECCIÓN VITAL: AQUÍ ESTÁ EL CAMBIO PARA QUE LA IA PIENSE
+# CHAT NIDO (AÚN USA NUTRIDOR LEGACY - PRÓXIMO PASO: ACTUALIZAR)
 # ==========================================================
 @app.route('/api/chat-nido', methods=['POST'])
 def chat_nido_api():
@@ -388,15 +409,17 @@ def debug_pre(): return render_template('persuasor.html', prospecto_id="TEST", c
 @app.route('/ver-nido')
 def debug_nido(): return render_template('nido_template.html', nombre_negocio="Demo", token_sesion="TEST", titulo_personalizado="Demo", contenido={})
 
-# --- RUTA CHAT ARQUITECTO (INTELIGENTE) ---
+# --- RUTA CHAT ARQUITECTO (AHORA USA EL CEREBRO ROTATIVO) ---
 @app.route('/api/chat-arquitecto', methods=['POST'])
 def chat_arquitecto_api():
     mensaje = request.json.get('message')
     if not mensaje: return jsonify({"response": "Por favor escribe una pregunta."})
+    
+    # Aquí llamamos al arquitecto actualizado
     if arquitecto_brain:
         return jsonify({"response": arquitecto_brain.pensar(mensaje)})
     else:
-        return jsonify({"response": "Cerebro inactivo (Falta API Key)."})
+        return jsonify({"response": "Cerebro inactivo (Error de carga)."})
 
 # --- RUTA ANTIGUA CHAT ---
 @app.route('/chat', methods=['POST'])
@@ -594,8 +617,8 @@ def admin_monitor():
     # Verificamos DB
     db_status = "🟢 Online" if get_db_connection() else "🔴 Error Conexión"
     
-    # Verificamos Google IA
-    ia_status = "🟢 Activo" if GOOGLE_API_KEY else "🔴 Falta Key"
+    # Verificamos Google IA (Ahora comprobamos si el MANAGER está cargado)
+    ia_status = "🟢 Rotación Activa" if brain else "🔴 Error Manager"
     
     # Verificamos Apify
     apify_status = "🟢 Activo" if os.environ.get('APIFY_TOKEN') else "🔴 Falta Token"
