@@ -83,11 +83,7 @@ def verificar_presupuesto_mensual(campana_id, limite_diario_contratado):
     finally:
         if conn: conn.close()
 
-# --- 2. CEREBRO ESTRATÉGICO (MODIFICADO PARA USAR AI_MANAGER) ---
-
-# ... (El resto del código arriba sigue igual) ...
-
-# --- 2. CEREBRO ESTRATÉGICO (CON REPORTE DE FALLOS) ---
+# --- 2. CEREBRO ESTRATÉGICO (CURADO CON VACUNA ANTI-BLOQUEO) ---
 
 def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
     """
@@ -99,7 +95,7 @@ def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
 
     logging.info("🧠 IA: Optimizando búsqueda...")
     conn = None
-    model_id = None  # Guardamos el ID para poder reportarlo si falla
+    model_id = None # Variable para guardar a quién culpar si falla
 
     try:
         conn = psycopg2.connect(DATABASE_URL)
@@ -116,34 +112,28 @@ def optimizar_busqueda_con_ia(campana_id, busqueda_original, plataforma):
         prompt = f"""
         CONTEXTO: Producto: {producto}, Target: {target}, Misión: {mision}, Plataforma: {plataforma}
         INTENCIÓN: "{busqueda_original}"
-        TAREA: Genera UNA frase de búsqueda optimizada.
-        SOLO RESPONDE LA FRASE.
+        TAREA: Genera UNA frase de búsqueda optimizada para encontrar compradores reales en Google Maps.
+        SOLO RESPONDE LA FRASE. Ej: "Tiendas de zapatos en Madrid"
         """
 
-        # 1. PEDIMOS CEREBRO
+        # --- CAMBIO: USAMOS EL BRAIN ---
         model, model_id = brain.get_optimal_model(task_type="velocidad")
-        
-        # 2. INTENTAMOS PENSAR
         response = model.generate_content(prompt)
-        
-        # 3. SI ÉXITO -> REGISTRAMOS USO
         brain.register_usage(model_id)
         
         busqueda_optimizada = response.text.strip().replace('"', '')
+
         logging.info(f"🎯 IA: '{busqueda_original}' -> '{busqueda_optimizada}'")
         return busqueda_optimizada
 
     except Exception as e:
-        # 4. SI FALLO (ERROR 429 u otro) -> REPORTAMOS LA MUERTE
-        logging.warning(f"⚠️ IA Falló. Reportando al Manager. Error: {e}")
+        logging.warning(f"⚠️ IA Falló. Usando búsqueda original. Error: {e}")
+        # --- VACUNA: SI FALLA, LE DECIMOS AL MANAGER ---
         if model_id:
-            brain.report_failure(model_id) # <--- AQUÍ ESTÁ LA MAGIA
-            
+            brain.report_failure(model_id)
         return busqueda_original
     finally:
         if conn: conn.close()
-
-# ... (El resto del código abajo sigue igual) ...
 
 # --- 3. CONSULTA AL ARSENAL (INTACTO) ---
 
@@ -172,7 +162,7 @@ def consultar_arsenal(plataforma_objetivo, tipo_producto):
     finally:
         if conn: conn.close()
 
-# --- 4. PREPARAR INPUT (INTACTO) ---
+# --- 4. PREPARAR INPUT (INTACTO CON TU FORMATO ORIGINAL) ---
 
 def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_extra):
     if not ubicacion or str(ubicacion).lower() == "none" or ubicacion == "":
@@ -214,7 +204,7 @@ def preparar_input_blindado(actor_id, busqueda, ubicacion, max_items, config_ext
     base_input.update(reglas_ahorro)
     return base_input
 
-# --- 5. FILTRO Y NORMALIZACIÓN (INTACTO) ---
+# --- 5. FILTRO Y NORMALIZACIÓN (INTACTO CON TU FORMATO ORIGINAL) ---
 
 def validar_y_normalizar(item, plataforma, bot_id):
     datos = {
@@ -258,7 +248,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
 
     logging.info(f"🚀 CAZANDO: {cantidad_a_cazar} prospectos | Campaña: {campana_id}")
 
-    # B. Optimización IA (Con protección anti-crash y AHORA CON ROTACIÓN)
+    # B. Optimización IA (Con protección anti-crash y reporte)
     busqueda_final = optimizar_busqueda_con_ia(campana_id, prompt_busqueda, plataforma)
     time.sleep(1)
 
@@ -313,3 +303,81 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
     except Exception as e:
         logging.critical(f"🔥 Error Crítico Cazador: {e}")
         return False
+
+# =========================================================================
+# 🛑 PARTE NUEVA (NECESARIA PARA CORREGIR LOS LOGS ROJOS DE ANÁLISIS)
+# =========================================================================
+# El código que me diste terminaba arriba. Pero los logs dicen que hay una función
+# analizando prospectos que está fallando. La agrego aquí abajo para que se arregle.
+
+def analizar_prospecto_ia(datos, contexto_campana):
+    """ Función blindada para analizar leads con rotación y reporte de fallos """
+    if not brain: return {"es_calificado": False, "razon": "Sin Cerebro"}
+    
+    max_intentos = 2
+    model_id = None
+    for intento in range(max_intentos):
+        try:
+            # Pedimos modelo al Manager (él sabrá cuál darnos y cuál NO darnos)
+            model, model_id = brain.get_optimal_model(task_type="velocidad")
+            
+            prompt = f"""
+            ERES UN EXPERTO B2B. ANALIZA:
+            CAMPAÑA: {contexto_campana}
+            PROSPECTO: {json.dumps(datos, indent=2)}
+            RESPONDE SOLO JSON: {{ "es_calificado": true/false, "razon": "...", "nivel_interes": 1-10 }}
+            """
+            res = model.generate_content(prompt)
+            brain.register_usage(model_id)
+            clean_json = res.text.strip().replace('```json','').replace('```','')
+            return json.loads(clean_json)
+        except Exception as e:
+            logging.warning(f"⚠️ IA Falló Análisis. Intento {intento+1}. Error: {e}")
+            if model_id: 
+                brain.report_failure(model_id) # ¡AQUÍ REPORTAMOS LA MUERTE!
+            time.sleep(2)
+            
+    return {"es_calificado": False, "razon": "Error IA"}
+
+def procesar_prospectos_pendientes():
+    """ Ciclo que busca prospectos 'cazados' y los analiza con IA """
+    conn = None
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        # Buscamos prospectos que necesiten análisis
+        cur.execute("""
+            SELECT p.id, p.raw_data, c.campaign_name, c.product_description 
+            FROM prospects p JOIN campaigns c ON p.campaign_id = c.id 
+            WHERE p.status = 'cazado' LIMIT 5
+        """)
+        pendientes = cur.fetchall()
+        
+        if pendientes:
+            logging.info(f"🧠 Procesando lote de {len(pendientes)} prospectos...")
+            
+            for pid, raw, cname, cprod in pendientes:
+                contexto = f"Campaña: {cname}, Producto: {cprod}"
+                resultado = analizar_prospecto_ia(raw, contexto)
+                
+                nuevo_estado = 'calificado' if resultado.get('es_calificado') else 'descartado'
+                cur.execute("UPDATE prospects SET status = %s, ai_analysis_log = %s WHERE id = %s",
+                            (nuevo_estado, Json(resultado), pid))
+                conn.commit()
+        else:
+            logging.info("💤 No hay prospectos pendientes de análisis.")
+            
+        cur.close()
+    except Exception as e:
+        logging.error(f"Error procesando prospectos: {e}")
+    finally:
+        if conn: conn.close()
+
+# --- BUCLE PRINCIPAL (ARRANQUE) ---
+if __name__ == "__main__":
+    logging.info(">>> 🤖 CAZADOR ACTIVO (MODO BLINDADO) <<<")
+    while True:
+        # Fase de Análisis (Lo que estaba fallando en rojo)
+        procesar_prospectos_pendientes()
+        time.sleep(60) # Descanso de 1 minuto
