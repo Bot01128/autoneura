@@ -14,7 +14,9 @@ try:
 except ImportError:
     brain = None
     print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. La IA no funcionará.")
+
 print("!!! ESTOY CORRIENDO LA VERSION NUEVA V3 - BLINDADA !!!")
+
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - CAZADOR - %(levelname)s - %(message)s')
@@ -222,7 +224,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
         return False
 
 # =========================================================================
-# 🛑 AQUÍ ESTABA LO QUE FALTABA PARA QUE LA IA NO FALLE EN LOS LOGS ROJOS
+# 🛑 ANALISIS DE PROSPECTOS (PARA EL ANALISTA)
 # =========================================================================
 
 def analizar_prospecto_ia(datos, contexto_campana):
@@ -247,7 +249,7 @@ def analizar_prospecto_ia(datos, contexto_campana):
         except Exception as e:
             logging.warning(f"⚠️ IA Falló Análisis. Intento {intento+1}. Error: {e}")
             if model_id and "429" in str(e): 
-                brain.report_failure(model_id) # Reportamos muerte
+                brain.report_failure(model_id)
             time.sleep(2)
     return {"es_calificado": False, "razon": "Error IA"}
 
@@ -258,7 +260,6 @@ def procesar_prospectos_pendientes():
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
-        # Buscamos prospectos que necesiten análisis
         cur.execute("""
             SELECT p.id, p.raw_data, c.campaign_name, c.product_description 
             FROM prospects p JOIN campaigns c ON p.campaign_id = c.id 
@@ -267,15 +268,12 @@ def procesar_prospectos_pendientes():
         pendientes = cur.fetchall()
         
         if pendientes:
-            logging.info(f"🧠 Procesando lote de {len(pendientes)} prospectos...")
-            
+            logging.info(f"🧠 Procesando lote de {len(pendientes)} prospectos (BLINDADO)...")
             for pid, raw, cname, cprod in pendientes:
                 contexto = f"Campaña: {cname}, Producto: {cprod}"
                 resultado = analizar_prospecto_ia(raw, contexto)
-                
                 nuevo_estado = 'calificado' if resultado.get('es_calificado') else 'descartado'
-                cur.execute("UPDATE prospects SET status = %s, ai_analysis_log = %s WHERE id = %s",
-                            (nuevo_estado, Json(resultado), pid))
+                cur.execute("UPDATE prospects SET status = %s, ai_analysis_log = %s WHERE id = %s", (nuevo_estado, Json(resultado), pid))
                 conn.commit()
         else:
             logging.info("💤 No hay prospectos pendientes de análisis.")
@@ -288,13 +286,9 @@ def procesar_prospectos_pendientes():
 
 # --- BUCLE PRINCIPAL ---
 if __name__ == "__main__":
-    logging.info(">>> 🤖 CAZADOR ACTIVO (MODO BLINDADO) <<<")
+    logging.info(">>> 🤖 CAZADOR ACTIVO (MODO BLINDADO V3) <<<")
     while True:
-        # 1. Fase de Caza (Buscar nuevos si hace falta)
-        # (Aquí iría tu lógica para disparar ejecutar_caza según horario, lo dejo pasivo por seguridad)
-        
-        # 2. Fase de Análisis (Lo que estaba fallando en rojo)
+        # Modo Independiente: Procesa prospectos en bucle
         procesar_prospectos_pendientes()
-        
-        time.sleep(60) # Descanso de 1 minuto
+        time.sleep(60)
 # Actualizacion forzada
