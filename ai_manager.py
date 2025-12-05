@@ -17,10 +17,7 @@ class AIManager:
     def get_optimal_model(self, task_type="general"):
         """
         Busca la mejor IA disponible.
-        Incluye lógica de Auto-Limpieza diaria.
         """
-        # print(f"--- 🧠 AI MANAGER: Buscando cerebro para tarea: {task_type} ---")
-        
         # 1. Buscamos modelos (FREE primero)
         candidate = self._find_available_key(task_type, account_tier='FREE')
         
@@ -30,7 +27,7 @@ class AIManager:
             candidate = self._find_available_key(task_type, account_tier='PAID')
             
         if not candidate:
-            raise Exception("❌ ERROR CRÍTICO: Todas las IAs están ocupadas, saturadas o muertas por hoy.")
+            raise Exception("❌ ERROR CRÍTICO: Todas las IAs están ocupadas o muertas.")
 
         # 3. Configuramos la IA
         api_key = candidate['ai_vault']['api_key']
@@ -55,21 +52,18 @@ class AIManager:
              .execute()
             
             valid_candidates = []
-            hoy_str = str(date.today()) # Fecha de hoy '2025-12-04'
+            hoy_str = str(date.today()) 
             
             for item in response.data:
-                # --- LÓGICA DE AUTO-LIMPIEZA ---
-                # Si la fecha guardada es distinta a hoy, asumimos que es un día nuevo
-                # y tratamos su uso como 0 (aunque en DB diga 9999 de ayer).
+                # --- AUTO-LIMPIEZA DIARIA ---
                 fecha_guardada = item.get('last_usage_date')
                 uso_actual = item['usage_today']
                 
                 if fecha_guardada != hoy_str:
-                    # ¡Es un nuevo día! Reseteamos virtualmente para elegirla
-                    uso_actual = 0
-                    # (Opcional: Podríamos actualizar DB aquí, pero lo hacemos en register_usage para ahorrar peticiones)
+                    uso_actual = 0 # Nuevo día, cuenta nueva
                 
                 # --- VERIFICACIÓN DE LÍMITES ---
+                # Si el uso es 99999 (Marcado como MUERTO/404), nunca entra aquí.
                 limite_seguro = item['daily_limit'] - item['safety_margin']
                 
                 if uso_actual < limite_seguro:
@@ -84,20 +78,15 @@ class AIManager:
             return None
 
     def register_usage(self, model_id):
-        """
-        Registra éxito: Suma +1 y actualiza la fecha a HOY.
-        """
+        """ Registra éxito: Suma +1 y actualiza fecha """
         try:
             hoy_str = str(date.today())
-            
-            # Leemos estado actual
             data = supabase.table('ai_models').select('usage_today, last_usage_date').eq('id', model_id).single().execute()
             if not data.data: return
 
             stored_date = data.data.get('last_usage_date')
             current_usage = data.data.get('usage_today', 0)
             
-            # Si la fecha cambió, reseteamos a 1. Si no, sumamos +1.
             new_usage = 1 if stored_date != hoy_str else current_usage + 1
             
             supabase.table('ai_models').update({
@@ -108,19 +97,29 @@ class AIManager:
         except Exception as e:
             print(f"Error actualizando contador: {e}")
 
-    def report_failure(self, model_id):
+    def report_failure(self, model_id, error_message=""):
         """
-        BOTÓN DE PÁNICO:
-        Si una IA falla (429), la marcamos con 9999 HOY para no usarla más.
-        Mañana, la lógica de _find_available_key verá que la fecha cambió y la perdonará.
+        SISTEMA DE AUTO-DEPURACIÓN INTELIGENTE:
+        - Si es 429 (Límite): Bloquea por HOY (9999).
+        - Si es 404 (No existe): Bloquea PARA SIEMPRE (99999).
         """
         try:
-            print(f"🚨 REPORTANDO MODELO CAÍDO ID: {model_id} - BLOQUEANDO POR HOY...")
             hoy_str = str(date.today())
+            err_str = str(error_message).lower()
+            
+            nuevo_uso = 9999 # Por defecto: Bloqueo diario (429)
+            
+            if "404" in err_str or "not found" in err_str:
+                print(f"💀 MODELO FANTASMA DETECTADO ID: {model_id}. Eliminando de la rotación permanentemente.")
+                nuevo_uso = 99999 # Bloqueo eterno (simbólico, supera cualquier límite diario)
+            else:
+                print(f"🚨 LÍMITE ALCANZADO ID: {model_id}. Bloqueando por hoy...")
+
             supabase.table('ai_models').update({
-                'usage_today': 9999,
+                'usage_today': nuevo_uso,
                 'last_usage_date': hoy_str
             }).eq('id', model_id).execute()
+            
         except Exception as e:
             print(f"Error reportando fallo de IA: {e}")
 
