@@ -14,7 +14,7 @@ try:
 except ImportError:
     brain = None
     print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. La IA no funcionará.")
-
+print("!!! ESTOY CORRIENDO LA VERSION NUEVA V3 - BLINDADA !!!")
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - CAZADOR - %(levelname)s - %(message)s')
