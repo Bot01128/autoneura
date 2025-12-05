@@ -176,7 +176,7 @@ class OrquestadorSupremo:
     # ⚙️ MÓDULO 3: COORDINACIÓN DE TRABAJADORES (LA CADENA DE MONTAJE)
     # ==============================================================================
 
-    def ejecutar_campana_secuencial(self, campana):
+   def ejecutar_campana_secuencial(self, campana):
         """
         Ejecuta TODOS los trabajadores en orden para UNA sola campaña.
         """
@@ -185,8 +185,7 @@ class OrquestadorSupremo:
 
         logging.info(f"🎬 --- INICIANDO SECUENCIA PARA: {nombre} ---")
 
-        # 1. EL CAZADOR (Trae la materia prima)
-        # Verificamos si ya cumplió la meta de hoy antes de mandarlo a trabajar
+        # 1. EL CAZADOR
         conn = self.conectar_db()
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM prospects WHERE campaign_id = %s AND created_at::date = CURRENT_DATE AND status = 'cazado'", (camp_id,))
@@ -197,30 +196,31 @@ class OrquestadorSupremo:
         if cazados_hoy < limite_diario:
             logging.info(f"🔫 1. ACTIVANDO CAZADOR ({cazados_hoy}/{limite_diario})")
             query_opt, plat = self.planificar_estrategia_caza(prod, audiencia, tipo_prod)
-            # Ejecución directa (SIN THREADS) - El código espera aquí
-            ejecutar_caza(camp_id, query_opt, ubic, plat, "Variable", limite_diario)
+            
+            # --- CORRECCIÓN AQUÍ: Cambié 'ubic' por 'ubicacion' ---
+            ejecutar_caza(camp_id, query_opt, ubicacion, plat, "Variable", limite_diario)
         else:
             logging.info(f"✅ Meta de caza cumplida hoy para {nombre}.")
 
-        # 2. EL ESPÍA (Enriquece datos)
+        # 2. EL ESPÍA
         logging.info("🕵️ 2. ACTIVANDO ESPÍA")
         ejecutar_espia(camp_id, limite_diario)
 
-        # 3. EL ANALISTA (Filtra calidad)
+        # 3. EL ANALISTA
         logging.info("🧠 3. ACTIVANDO ANALISTA")
         try:
-            trabajar_analista() # Se asume que procesa un lote y retorna
+            trabajar_analista() 
         except Exception as e:
             logging.error(f"Error Analista: {e}")
 
-        # 4. EL PERSUASOR (Escribe correos)
+        # 4. EL PERSUASOR
         logging.info("🎩 4. ACTIVANDO PERSUASOR")
         try:
-            trabajar_persuasor() # Se asume que procesa un lote y retorna
+            trabajar_persuasor() 
         except Exception as e:
             logging.error(f"Error Persuasor: {e}")
 
-        # 5. EL NUTRIDOR (Chat y Seguimiento)
+        # 5. EL NUTRIDOR
         logging.info("🌱 5. ACTIVANDO NUTRIDOR")
         try:
             self.nutridor.ejecutar_ciclo_seguimiento()
@@ -228,7 +228,6 @@ class OrquestadorSupremo:
             logging.error(f"Error Nutridor: {e}")
 
         logging.info(f"🏁 --- FIN SECUENCIA PARA: {nombre} ---")
-
 
     def coordinar_operaciones_diarias(self):
         """
