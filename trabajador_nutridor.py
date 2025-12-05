@@ -8,6 +8,13 @@ from psycopg2.extras import Json
 import google.generativeai as genai
 from dotenv import load_dotenv
 
+# --- NUEVO: CONEXIÓN AL CEREBRO CENTRAL (Para rotación de llaves) ---
+try:
+    from ai_manager import brain
+except ImportError:
+    brain = None
+    print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. El Nutridor no podrá pensar.")
+
 # --- CONFIGURACIÓN ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - NUTRIDOR - %(levelname)s - %(message)s')
@@ -15,13 +22,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - NUTRIDOR - %(level
 DATABASE_URL = os.environ.get("DATABASE_URL")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# USAMOS EL MODELO GEMINI 2.5 FLASH (Rápido, Estable y sin Bloqueos al pagar)
-# Actualizamos esto para evitar el error 429
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    MODELO_IA = "models/gemini-2.5-flash"
-else:
-    MODELO_IA = None
+# --- CONFIGURACIÓN DE IA (MODIFICADO PARA USAR BRAIN) ---
+# Comentamos esto para que no bloquee la rotación con una llave fija vieja
+# if GOOGLE_API_KEY:
+#     genai.configure(api_key=GOOGLE_API_KEY)
+#     MODELO_IA = "models/gemini-2.5-flash"
+# else:
+#     MODELO_IA = None
 
 class TrabajadorNutridor:
     def __init__(self):
@@ -42,7 +49,8 @@ class TrabajadorNutridor:
         Genera el contenido para el Nido basado en el Paso (1-7) 
         y aplica la estrategia psicológica correspondiente.
         """
-        if not MODELO_IA: return None
+        # Verificación del Brain en lugar del Modelo Fijo
+        if not brain: return None
 
         # LA ESCALERA DE PERSUASIÓN (Tus 20 Trucos aplicados)
         estrategias = {
@@ -90,14 +98,24 @@ class TrabajadorNutridor:
         }}
         """
 
+        model_id = None # Para rastrear fallos
         try:
-            model = genai.GenerativeModel(MODELO_IA)
+            # CAMBIO: Usamos brain para obtener modelo INTELIGENTE
+            model, model_id = brain.get_optimal_model(task_type="inteligencia")
+            
             res = model.generate_content(prompt)
+            
+            # CAMBIO: Registramos uso
+            brain.register_usage(model_id)
+            
             texto_limpio = res.text.replace("```json", "").replace("```", "").strip()
             return json.loads(texto_limpio)
         except Exception as e:
             logging.error(f"⚠️ Error IA Nutridor: {e}")
-            if "429" in str(e): raise e 
+            # CAMBIO: Reportamos si es un error de cuota para cambiar llave
+            if model_id and "429" in str(e): 
+                brain.report_failure(model_id)
+                raise e 
             return None
 
     # --- CEREBRO INSTANTÁNEO (Chatbot Vendedor - NUEVA FUNCIÓN) ---
@@ -108,7 +126,7 @@ class TrabajadorNutridor:
         Responde al prospecto EN TIEMPO REAL dentro del Nido.
         Esta función es llamada por main.py (/api/chat-nido).
         """
-        if not MODELO_IA: return "Error: Cerebro IA desconectado."
+        if not brain: return "Error: Cerebro IA desconectado."
 
         conn = None
         try:
@@ -155,9 +173,18 @@ class TrabajadorNutridor:
             - Termina siempre con una pregunta para mantener la conversación.
             """
             
-            model = genai.GenerativeModel(MODELO_IA)
-            res = model.generate_content(prompt_chat)
-            return res.text
+            # CAMBIO: Usamos modelo VELOZ para chat
+            model_id = None
+            try:
+                model, model_id = brain.get_optimal_model(task_type="velocidad")
+                res = model.generate_content(prompt_chat)
+                brain.register_usage(model_id)
+                return res.text
+            except Exception as e_ia:
+                if model_id and "429" in str(e_ia):
+                    brain.report_failure(model_id)
+                logging.error(f"Error IA Chat: {e_ia}")
+                return "Dame un momento, estoy revisando tu caso..."
 
         except Exception as e:
             logging.error(f"🔥 Error Chat Nido: {e}")
