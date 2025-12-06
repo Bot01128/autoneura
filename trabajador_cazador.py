@@ -15,7 +15,7 @@ except ImportError:
     brain = None
     print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. La IA no funcionará.")
 
-# --- IMPORTACIÓN DEL GERENTE DE SCRAPERS (NUEVO) ---
+# --- IMPORTACIÓN DEL GERENTE DE SCRAPERS (EL CEREBRO DE CUENTAS) ---
 try:
     from scraper_manager import scraper_brain
 except ImportError:
@@ -28,7 +28,7 @@ print("!!! ESTOY CORRIENDO LA VERSION NUEVA V4 - APIFY BLINDADO !!!")
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - CAZADOR - %(levelname)s - %(message)s')
 
-# APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN") # <-- COMENTADO: Ya no usamos llave fija
+# APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN") # <-- COMENTADO: Ya no usamos llave fija.
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # --- CONSTANTES FINANCIERAS (INTACTAS) ---
@@ -196,7 +196,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
     bot_info = consultar_arsenal(plataforma, tipo_producto)
     actor_id = bot_info["actor_id"]
     
-    # --- CAMBIO AQUÍ: OBTENER LLAVE DINÁMICA ---
+    # --- OBTENER LLAVE DINÁMICA DE APIFY ---
     apify_key_to_use = None
     if scraper_brain:
         # Pedimos llave al manager (él revisa saldo y rota)
@@ -205,7 +205,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
             logging.error("❌ CAZADOR ABORTADO: No hay llaves de Apify con saldo.")
             return False
     else:
-        # Fallback de emergencia (si no hay manager, usa variable de entorno, pero ya no debería pasar)
+        # Fallback de emergencia
         apify_key_to_use = os.environ.get("APIFY_API_TOKEN")
 
     if not apify_key_to_use:
@@ -245,7 +245,7 @@ def ejecutar_caza(campana_id, prompt_busqueda, ubicacion, plataforma="Google Map
         return True
     except Exception as e:
         logging.critical(f"🔥 Error Crítico Cazador: {e}")
-        # Si falla por autenticación, avisamos al manager
+        # Si falla por autenticación, avisamos al manager para que desactive esa llave
         if scraper_brain and "401" in str(e):
             scraper_brain.report_execution_failure(apify_key_to_use)
         return False
