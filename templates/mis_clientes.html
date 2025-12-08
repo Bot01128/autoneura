@@ -299,4 +299,19 @@
        });
    </script>
 </body>
+    <!-- PARCHE DE EMERGENCIA PARA EL TELÉFONO -->
+<style>
+    /* Forzamos el padding ignorando cualquier otra regla */
+    .iti input, 
+    input[type="tel"], 
+    #phone {
+        padding-left: 95px !important; /* Espacio exagerado para que quepa la bandera */
+        z-index: 1 !important;
+    }
+    
+    /* Aseguramos que la bandera flote encima */
+    .iti__flag-container {
+        z-index: 10 !important;
+    }
+</style>
 </html>
