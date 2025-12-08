@@ -128,3 +128,7 @@ small { color: #6c757d; font-size: 12px; }
     .container { flex-direction: column; overflow: auto; } 
     .left-panel { flex-basis: auto; min-height: 400px; } 
 }
+/* Arreglo para que el texto no pise la bandera */
+.input-phone, #phone {
+    padding-left: 80px !important; /* Empuja el texto a la derecha */
+}
