@@ -25,29 +25,49 @@ except ImportError:
     TrabajadorNutridor = None
 
 # ==============================================================================
-#  BLOQUE DE DIAGNÓSTICO CRÍTICO (AQUÍ ESTÁ EL CAMBIO  PARA ENCONTRAR EL ERROR)
+#  BLOQUE DE IMPORTACIÓN BLINDADA (ESTO ARREGLA EL ERROR DE IMPORTACIÓN)
 # ==============================================================================
 print("----------------------------------------------------------------")
-print(f"📂 DIAGNÓSTICO DE ARRANQUE: Directorio actual del servidor: {os.getcwd()}")
-try:
-    files = os.listdir('.')
-    if 'ai_manager.py' in files:
-        print("✅ ARCHIVO ENCONTRADO FÍSICAMENTE: ai_manager.py está en la carpeta raíz.")
-    else:
-        print(f"❌ ARCHIVO FALTANTE: ai_manager.py NO aparece en la lista de archivos: {files}")
-except Exception as list_err:
-    print(f"⚠️ Error intentando leer el directorio: {list_err}")
+print(f"📂 DIAGNÓSTICO: Buscando ai_manager en {os.getcwd()}")
 
-# INTENTO DE IMPORTACIÓN FORZADA (SIN OCULTAR ERRORES)
+brain = None # Valor por defecto global
+
 try:
-    from ai_manager import brain
-    print("✅ ÉXITO TOTAL: ai_manager cargado, la rotación de llaves está ACTIVA.")
+    # 1. Intentamos importar el módulo COMPLETO primero
+    import ai_manager
+    print(f"✅ MÓDULO CARGADO: {ai_manager}")
+    
+    # 2. Diagnóstico de contenido (Para ver qué tiene adentro)
+    # print(f"🧐 CONTENIDO DEL MÓDULO: {dir(ai_manager)}") 
+
+    # 3. ESTRATEGIA DE BÚSQUEDA INTELIGENTE
+    if hasattr(ai_manager, 'brain'):
+        brain = ai_manager.brain
+        print("✅ Usando variable 'brain' encontrada en el archivo.")
+    
+    elif hasattr(ai_manager, 'cerebro_ia'):
+        brain = ai_manager.cerebro_ia
+        print("⚠️ Variable 'brain' no existe, pero encontré 'cerebro_ia'. Usando esa.")
+    
+    elif hasattr(ai_manager, 'AIManager'):
+        print("⚠️ No encontré ninguna instancia lista. Creándola manualmente...")
+        brain = ai_manager.AIManager()
+        print("✅ Instancia creada manualmente desde main.py")
+    
+    else:
+        print("🚨 EL ARCHIVO ai_manager.py ESTÁ VACÍO O NO TIENE LA CLASE 'AIManager'")
+
+except ImportError as e:
+    print(f"❌ ERROR: Python no puede importar 'ai_manager'. ¿Seguro que el archivo está ahí? {e}")
 except Exception as e:
-    brain = None
-    print(f"\n🚨🚨🚨 ERROR CRÍTICO AL IMPORTAR AI_MANAGER: {e} 🚨🚨🚨")
-    print("🔎 DETALLE TÉCNICO DEL ERROR (Traceback):")
+    print(f"🚨 ERROR CRÍTICO DESCONOCIDO: {e}")
     traceback.print_exc()
-    print("⚠️ ADVERTENCIA: El sistema arrancará, pero SIN inteligencia rotativa (Modo Fallo).\n")
+
+if not brain:
+    print("⚠️ ADVERTENCIA FINAL: El sistema arrancará SIN Cerebro (Modo Degradado).")
+else:
+    print("🧠 CEREBRO CONECTADO EXITOSAMENTE.")
+
 print("----------------------------------------------------------------")
 # ==============================================================================
 
