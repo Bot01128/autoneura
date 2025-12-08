@@ -25,7 +25,7 @@ except ImportError:
     TrabajadorNutridor = None
 
 # ==============================================================================
-#  BLOQUE DE DIAGNÓSTICO CRÍTICO (AQUÍ ESTÁ EL CAMBIO PARA ENCONTRAR EL ERROR)
+#  BLOQUE DE DIAGNÓSTICO CRÍTICO (AQUÍ ESTÁ EL CAMBIO  PARA ENCONTRAR EL ERROR)
 # ==============================================================================
 print("----------------------------------------------------------------")
 print(f"📂 DIAGNÓSTICO DE ARRANQUE: Directorio actual del servidor: {os.getcwd()}")
