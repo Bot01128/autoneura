@@ -67,8 +67,7 @@ class AIManager:
                 fecha_guardada = item.get('last_usage_date')
                 uso_actual = item['usage_today']
                 
-                # --- AUTO-LIMPIEZA DIARIA (CORREGIDO) ---
-                # Si la fecha en base de datos es vieja, actualizamos LA BASE DE DATOS AHORA MISMO.
+                # --- AUTO-LIMPIEZA DIARIA ---
                 if fecha_guardada != hoy_str:
                     print(f"🔄 Nuevo día detectado para {item['model_name']}. Reseteando contador en DB...")
                     try:
@@ -76,14 +75,11 @@ class AIManager:
                             'usage_today': 0,
                             'last_usage_date': hoy_str
                         }).eq('id', item['id']).execute()
-                        
-                        # Actualizamos la variable local para usarla ya
                         uso_actual = 0
                     except Exception as e_reset:
                         print(f"⚠️ Error intentando resetear fecha en DB: {e_reset}")
                 
                 # --- VERIFICACIÓN DE LÍMITES ---
-                # Si uso_actual es gigante (por bloqueo 429), no entra aquí.
                 limite_seguro = item['daily_limit'] - item['safety_margin']
                 
                 if uso_actual < limite_seguro:
@@ -101,15 +97,12 @@ class AIManager:
         """ Registra éxito: Suma +1 """
         try:
             hoy_str = str(date.today())
-            
-            # Consultamos primero
             data = supabase.table('ai_models').select('usage_today, last_usage_date').eq('id', model_id).single().execute()
             if not data.data: return
 
             stored_date = data.data.get('last_usage_date')
             current_usage = data.data.get('usage_today', 0)
             
-            # Si la fecha cambió justo ahora (poco probable por la lógica anterior, pero por seguridad)
             new_usage = 1 if stored_date != hoy_str else current_usage + 1
             
             supabase.table('ai_models').update({
@@ -121,32 +114,19 @@ class AIManager:
             print(f"Error actualizando contador: {e}")
 
     def report_failure(self, model_id, error_message=""):
-        """
-        SI FALLA:
-        1. Si es 404 (No existe) -> Bloqueo ETERNO (99999).
-        2. Si es 429 (Quota) -> Bloqueo POR HOY (Daily Limit + 1).
-        Al día siguiente, el script de arriba detectará fecha vieja y lo pondrá en 0.
-        """
+        """ SI FALLA: Bloqueo temporal o permanente """
         try:
             hoy_str = str(date.today())
             err_str = str(error_message).lower()
             
-            # Traemos el límite actual para saber cuánto ponerle para bloquearlo
             data_limit = supabase.table('ai_models').select('daily_limit').eq('id', model_id).single().execute()
             limite_diario = data_limit.data.get('daily_limit', 1000) if data_limit.data else 1000
             
-            nuevo_uso = limite_diario + 500 # Lo pasamos del límite para que no se use más hoy
+            nuevo_uso = limite_diario + 500 
             
             if "404" in err_str or "not found" in err_str:
-                print(f"💀 MODELO FANTASMA ID: {model_id}. Eliminando permanentemente.")
                 nuevo_uso = 999999 
             
-            elif "429" in err_str or "quota" in err_str or "exhausted" in err_str:
-                print(f"🚨 LÍMITE GOOGLE ALCANZADO ID: {model_id}. Bloqueando por HOY.")
-                # NO tocamos la cuenta 'account_type', solo bloqueamos este modelo por hoy.
-                # Mañana 'last_usage_date' será diferente y volverá a 0.
-
-            # Actualizamos en DB para que nadie más lo use hoy
             supabase.table('ai_models').update({
                 'usage_today': nuevo_uso,
                 'last_usage_date': hoy_str
@@ -159,34 +139,20 @@ class AIManager:
     #  NUEVA FUNCIÓN: Generar Respuesta para el Panel de Control (Chat Admin)
     # =========================================================================
     def generar_respuesta_demo(self, mensaje_usuario):
-        """
-        Usa la IA para responderle al Dueño (Tú) en el panel de control.
-        Tiene instrucciones estrictas para NO mostrar JSON crudo.
-        """
         intentos = 0
-        max_intentos = 2 # Intentamos con 2 llaves distintas si falla la primera
+        max_intentos = 2 
         
         system_prompt = """
         ERES UN ASISTENTE EJECUTIVO DE 'AUTONEURA AI'.
         Estás hablando con el Dueño/Administrador de la plataforma.
-        
-        TU MISIÓN:
-        1. Responder preguntas sobre el negocio, campañas o clientes de forma clara.
-        2. IMPORTANTE: JAMÁS respondas con estructuras JSON, diccionarios de Python o código crudo.
-        3. Si debes listar datos, usa viñetas (bullets) limpias y legibles.
-        4. Sé profesional, directo y en español neutro.
-        
-        Si te preguntan "¿Qué vendes?", explica que eres una IA capaz de automatizar ventas B2B.
+        TU MISIÓN: Responder sin usar JSON crudo. Usa viñetas. Sé profesional.
         """
 
         while intentos < max_intentos:
             try:
                 model, model_id = self.get_optimal_model(task_type="chat_demo")
                 full_prompt = f"{system_prompt}\n\nPREGUNTA DEL USUARIO: {mensaje_usuario}"
-                
                 response = model.generate_content(full_prompt)
-                
-                # Éxito
                 self.register_usage(model_id)
                 return response.text
                 
@@ -197,7 +163,7 @@ class AIManager:
                 intentos += 1
                 time.sleep(1)
         
-        return "Disculpa, socio. Mis neuronas están sobrecargadas en este momento. Intenta en un minuto."
+        return "Disculpa, socio. Mis neuronas están sobrecargadas. Intenta en un minuto."
 
-# Instancia global
-cerebro_ia = AIManager()
+# --- INSTANCIA GLOBAL (ESTA LÍNEA ES LA CLAVE) ---
+brain = AIManager()
