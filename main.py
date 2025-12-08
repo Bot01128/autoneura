@@ -5,7 +5,7 @@ import google.generativeai as genai
 import uuid
 import logging
 import re
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from flask_babel import Babel, gettext
 from psycopg2.extras import Json
 from werkzeug.routing import BaseConverter
@@ -77,14 +77,16 @@ def get_db_connection():
         print(f"Error DB: {e}")
         return None
 
+def get_current_user_email():
+    # En producción esto debe venir de session['user_email'] o similar
+    # Por ahora hardcodeado como en tu código original para Admin
+    return 'admin@autoneura.com'
+
 # ==========================================
 # CEREBRO ARQUITECTO (ACTUALIZADO CON ROTACIÓN DE LLAVES)
 # ==========================================
 class CerebroArquitecto:
     def __init__(self):
-        # YA NO SE INICIALIZA CON UNA LLAVE FIJA.
-        # SE PIDE AL ai_manager CADA VEZ QUE SE PIENSA.
-        
         # ESQUEMA PARA SQL
         self.schema = """
         ERES UN EXPERTO EN SQL POSTGRESQL. TU TRABAJO ES CONSULTAR ESTAS TABLAS:
@@ -168,7 +170,7 @@ class CerebroArquitecto:
         except Exception as e:
             return f"Error técnico o de IA: {str(e)}"
 
-# Instancia global del Arquitecto (Nueva versión sin llave fija)
+# Instancia global del Arquitecto
 arquitecto_brain = CerebroArquitecto()
 
 
@@ -195,7 +197,7 @@ def obtener_datos_dashboard():
     if not conn: return jsonify({"error": "No DB"}), 500
     try:
         cur = conn.cursor()
-        client_email = 'admin@autoneura.com' 
+        client_email = get_current_user_email()
         
         cur.execute("""
             SELECT 
@@ -239,53 +241,78 @@ def obtener_datos_dashboard():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        cur.close()
-        conn.close()
+        if conn: conn.close()
 
-# --- API: CREAR CAMPAÑA ---
+# --- API: CREAR CAMPAÑA (ARREGLADA 100%) ---
 @app.route('/api/crear-campana', methods=['POST'])
 def crear_campana():
     conn = get_db_connection()
-    if not conn: return jsonify({"success": False}), 500
+    if not conn: return jsonify({"success": False, "error": "No DB Connection"}), 500
     try:
         d = request.json
         cur = conn.cursor()
+        client_email = get_current_user_email()
         
-        cur.execute("SELECT id FROM clients WHERE email = 'admin@autoneura.com'")
+        # 1. Obtener o crear Cliente
+        cur.execute("SELECT id FROM clients WHERE email = %s", (client_email,))
         res = cur.fetchone()
         if not res:
-            cur.execute("INSERT INTO clients (email, full_name, plan_type, plan_cost) VALUES ('admin@autoneura.com', 'Admin', 'starter', 149.00) RETURNING id")
+            cur.execute("INSERT INTO clients (email, full_name, plan_type, plan_cost) VALUES (%s, 'Admin', 'starter', 149.00) RETURNING id", (client_email,))
             cid = cur.fetchone()[0]
             conn.commit()
         else:
             cid = res[0]
 
+        # 2. Preparar Datos (Usando los nombres correctos de columna DB)
         desc = f"{d.get('que_vende')}. {d.get('descripcion')}"
+        phone = d.get('numero_whatsapp') # Ya viene con +58
+        
+        # 3. Insertar con NOMBRES EXACTOS DE COLUMNAS DB
+        # Usamos whatsapp_number y whatsapp_contact duplicados por seguridad
         cur.execute("""
             INSERT INTO campaigns (
                 client_id, campaign_name, product_description, target_audience, 
                 product_type, search_languages, geo_location,
-                ticket_price, competitors, cta_goal, pain_points_defined, tone_voice, red_flags,
-                ai_constitution, ai_blackboard, whatsapp_number, sales_link,
-                status, created_at
+                ticket_price, competitors, cta_goal, 
+                pain_points_defined, tone_voice, red_flags,
+                ai_constitution, ai_blackboard, 
+                whatsapp_number, whatsapp_contact, sales_link,
+                status, created_at, daily_prospects_limit
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', NOW(), 10)
             RETURNING id
         """, (
-            cid, d.get('nombre'), desc, d.get('a_quien'), d.get('tipo_producto'), d.get('idiomas'), d.get('ubicacion'),
-            d.get('ticket_producto'), d.get('competidores_principales'), d.get('objetivo_cta'), d.get('dolores_pain_points'), 
-            d.get('tono_marca'), d.get('red_flags'), d.get('ai_constitution'), d.get('ai_blackboard'), 
-            d.get('numero_whatsapp'), d.get('enlace_venta')
+            cid, 
+            d.get('nombre'), 
+            desc, 
+            d.get('a_quien'), 
+            d.get('tipo_producto'), 
+            d.get('idiomas'), 
+            d.get('ubicacion'),
+            d.get('ticket_producto'), 
+            d.get('competidores_principales'), 
+            d.get('objetivo_cta'), 
+            d.get('dolores_pain_points'), 
+            d.get('tono_marca'), 
+            d.get('red_flags'), 
+            d.get('ai_constitution'), 
+            d.get('ai_blackboard'), 
+            phone, # whatsapp_number
+            phone, # whatsapp_contact (duplicado para asegurar)
+            d.get('enlace_venta')
         ))
         
         nid = cur.fetchone()[0]
         conn.commit()
+        print(f"✅ Campaña Creada ID: {nid}")
         return jsonify({"success": True})
+        
     except Exception as e:
+        print(f"❌ Error creando campaña: {e}")
         if conn: conn.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        conn.close()
+        if conn: conn.close()
 
 # --- API: MIS CAMPAÑAS ---
 @app.route('/api/mis-campanas', methods=['GET'])
@@ -381,7 +408,7 @@ def generar_nido_y_entrar():
         conn.close()
 
 # ==========================================================
-# CHAT NIDO (AÚN USA NUTRIDOR LEGACY - PRÓXIMO PASO: ACTUALIZAR)
+# CHAT NIDO
 # ==========================================================
 @app.route('/api/chat-nido', methods=['POST'])
 def chat_nido_api():
@@ -395,12 +422,10 @@ def chat_nido_api():
         
     # 2. CONEXIÓN REAL CON EL CEREBRO
     if nutridor_brain:
-        # Llamamos a la función que creamos en trabajador_nutridor.py
         respuesta_ia = nutridor_brain.responder_chat_instantaneo(mensaje, token)
         return jsonify({"respuesta": respuesta_ia})
         
-    return jsonify({"respuesta": "El Asistente está desconectado (Falta API Key)."})
-# ==========================================================
+    return jsonify({"respuesta": "El Asistente está desconectado temporalmente."})
 
 # --- RUTAS DEBUG ---
 @app.route('/ver-pre-nido')
@@ -409,25 +434,37 @@ def debug_pre(): return render_template('persuasor.html', prospecto_id="TEST", c
 @app.route('/ver-nido')
 def debug_nido(): return render_template('nido_template.html', nombre_negocio="Demo", token_sesion="TEST", titulo_personalizado="Demo", contenido={})
 
-# --- RUTA CHAT ARQUITECTO (AHORA USA EL CEREBRO ROTATIVO) ---
+# --- RUTA CHAT ARQUITECTO (USANDO EL CEREBRO ROTATIVO) ---
 @app.route('/api/chat-arquitecto', methods=['POST'])
 def chat_arquitecto_api():
     mensaje = request.json.get('message')
     if not mensaje: return jsonify({"response": "Por favor escribe una pregunta."})
     
-    # Aquí llamamos al arquitecto actualizado
     if arquitecto_brain:
         return jsonify({"response": arquitecto_brain.pensar(mensaje)})
     else:
-        return jsonify({"response": "Cerebro inactivo (Error de carga)."})
+        return jsonify({"response": "Cerebro inactivo."})
 
-# --- RUTA ANTIGUA CHAT ---
+# --- RUTA CHAT ADMIN (CORREGIDA PARA NO MOSTRAR JSON) ---
 @app.route('/chat', methods=['POST'])
 def chat_admin():
+    # Intenta usar el nuevo sistema (Manager) si el viejo no existe
+    mensaje = request.json.get('message')
+    
+    if brain:
+        # Usamos la función especial 'generar_respuesta_demo' que agregamos al manager
+        if hasattr(brain, 'generar_respuesta_demo'):
+            return jsonify({"response": brain.generar_respuesta_demo(mensaje)})
+            
+    # Fallback al sistema viejo
     global dashboard_brain
-    if not dashboard_brain and create_chatbot: dashboard_brain = create_chatbot()
-    if dashboard_brain: return jsonify({"response": dashboard_brain.invoke({"question": request.json.get('message')})})
-    return jsonify({"response": "Mantenimiento"})
+    if not dashboard_brain and create_chatbot: 
+        dashboard_brain = create_chatbot()
+        
+    if dashboard_brain: 
+        return jsonify({"response": dashboard_brain.invoke({"question": mensaje})})
+        
+    return jsonify({"response": "Sistema de Chat en mantenimiento."})
 
 # --- API: DETALLES CAMPAÑA ---
 @app.route('/api/campana/<string:id>', methods=['GET'])
@@ -436,6 +473,7 @@ def obtener_detalle_campana(id):
     if not conn: return jsonify({"error": "No DB"}), 500
     try:
         cur = conn.cursor()
+        # Seleccionamos nombres correctos de columna
         cur.execute("""
             SELECT id, campaign_name, product_description, target_audience, product_type, search_languages, geo_location,
             ticket_price, competitors, cta_goal, pain_points_defined, tone_voice, red_flags, ai_constitution, ai_blackboard,
@@ -492,7 +530,8 @@ def admin_metricas():
         
         # 1. MRR (Suma de planes activos)
         cur.execute("SELECT SUM(plan_cost) FROM clients WHERE is_active = TRUE")
-        mrr = cur.fetchone()[0] or 0
+        row = cur.fetchone()
+        mrr = row[0] if row and row[0] else 0
         
         # 2. Total Clientes
         cur.execute("SELECT COUNT(*) FROM clients")
@@ -617,7 +656,7 @@ def admin_monitor():
     # Verificamos DB
     db_status = "🟢 Online" if get_db_connection() else "🔴 Error Conexión"
     
-    # Verificamos Google IA (Ahora comprobamos si el MANAGER está cargado)
+    # Verificamos Google IA
     ia_status = "🟢 Rotación Activa" if brain else "🔴 Error Manager"
     
     # Verificamos Apify
