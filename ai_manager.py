@@ -34,7 +34,16 @@ class AIManager:
         model_name = candidate['model_name']
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
+        
+        # Configuración de seguridad para evitar bloqueos tontos
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+        
+        model = genai.GenerativeModel(model_name, safety_settings=safety_settings)
         
         print(f"✅ Cerebro Asignado: {model_name} (ID: {candidate['id']})")
         
@@ -146,5 +155,49 @@ class AIManager:
         except Exception as e:
             print(f"Error reportando fallo de IA: {e}")
 
+    # =========================================================================
+    #  NUEVA FUNCIÓN: Generar Respuesta para el Panel de Control (Chat Admin)
+    # =========================================================================
+    def generar_respuesta_demo(self, mensaje_usuario):
+        """
+        Usa la IA para responderle al Dueño (Tú) en el panel de control.
+        Tiene instrucciones estrictas para NO mostrar JSON crudo.
+        """
+        intentos = 0
+        max_intentos = 2 # Intentamos con 2 llaves distintas si falla la primera
+        
+        system_prompt = """
+        ERES UN ASISTENTE EJECUTIVO DE 'AUTONEURA AI'.
+        Estás hablando con el Dueño/Administrador de la plataforma.
+        
+        TU MISIÓN:
+        1. Responder preguntas sobre el negocio, campañas o clientes de forma clara.
+        2. IMPORTANTE: JAMÁS respondas con estructuras JSON, diccionarios de Python o código crudo.
+        3. Si debes listar datos, usa viñetas (bullets) limpias y legibles.
+        4. Sé profesional, directo y en español neutro.
+        
+        Si te preguntan "¿Qué vendes?", explica que eres una IA capaz de automatizar ventas B2B.
+        """
+
+        while intentos < max_intentos:
+            try:
+                model, model_id = self.get_optimal_model(task_type="chat_demo")
+                full_prompt = f"{system_prompt}\n\nPREGUNTA DEL USUARIO: {mensaje_usuario}"
+                
+                response = model.generate_content(full_prompt)
+                
+                # Éxito
+                self.register_usage(model_id)
+                return response.text
+                
+            except Exception as e:
+                print(f"⚠️ Fallo IA Demo (Intento {intentos+1}): {e}")
+                if 'model_id' in locals():
+                    self.report_failure(model_id, str(e))
+                intentos += 1
+                time.sleep(1)
+        
+        return "Disculpa, socio. Mis neuronas están sobrecargadas en este momento. Intenta en un minuto."
+
 # Instancia global
-brain = AIManager()
+cerebro_ia = AIManager()
