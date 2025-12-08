@@ -5,6 +5,8 @@ import google.generativeai as genai
 import uuid
 import logging
 import re
+import sys          # NUEVO: Para diagnósticos
+import traceback    # NUEVO: Para ver el error real
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from flask_babel import Babel, gettext
 from psycopg2.extras import Json
@@ -22,12 +24,32 @@ try:
 except ImportError:
     TrabajadorNutridor = None
 
-# --- NUEVO: CONEXIÓN AL GERENTE DE IA (ROTACIÓN DE LLAVES) ---
+# ==============================================================================
+#  BLOQUE DE DIAGNÓSTICO CRÍTICO (AQUÍ ESTÁ EL CAMBIO PARA ENCONTRAR EL ERROR)
+# ==============================================================================
+print("----------------------------------------------------------------")
+print(f"📂 DIAGNÓSTICO DE ARRANQUE: Directorio actual del servidor: {os.getcwd()}")
+try:
+    files = os.listdir('.')
+    if 'ai_manager.py' in files:
+        print("✅ ARCHIVO ENCONTRADO FÍSICAMENTE: ai_manager.py está en la carpeta raíz.")
+    else:
+        print(f"❌ ARCHIVO FALTANTE: ai_manager.py NO aparece en la lista de archivos: {files}")
+except Exception as list_err:
+    print(f"⚠️ Error intentando leer el directorio: {list_err}")
+
+# INTENTO DE IMPORTACIÓN FORZADA (SIN OCULTAR ERRORES)
 try:
     from ai_manager import brain
-except ImportError:
+    print("✅ ÉXITO TOTAL: ai_manager cargado, la rotación de llaves está ACTIVA.")
+except Exception as e:
     brain = None
-    print("⚠️ ADVERTENCIA: ai_manager.py no encontrado. El sistema de rotación no funcionará.")
+    print(f"\n🚨🚨🚨 ERROR CRÍTICO AL IMPORTAR AI_MANAGER: {e} 🚨🚨🚨")
+    print("🔎 DETALLE TÉCNICO DEL ERROR (Traceback):")
+    traceback.print_exc()
+    print("⚠️ ADVERTENCIA: El sistema arrancará, pero SIN inteligencia rotativa (Modo Fallo).\n")
+print("----------------------------------------------------------------")
+# ==============================================================================
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
@@ -117,7 +139,7 @@ class CerebroArquitecto:
         
         # 1. SOLICITAR CEREBRO AL MANAGER (ROTACIÓN)
         if not brain:
-            return "Error: El sistema de rotación de IA (ai_manager) no está activo."
+            return "Error: El sistema de rotación de IA (ai_manager) no está activo. Revisa el LOG de arranque."
             
         try:
             # Pedimos un modelo 'inteligente' (Pro) o 'general' para escribir SQL bien
@@ -451,12 +473,12 @@ def chat_admin():
     # Intenta usar el nuevo sistema (Manager) si el viejo no existe
     mensaje = request.json.get('message')
     
+    # INTENTO 1: Usar ai_manager (Cerebro Nuevo con rotación)
     if brain:
-        # Usamos la función especial 'generar_respuesta_demo' que agregamos al manager
         if hasattr(brain, 'generar_respuesta_demo'):
             return jsonify({"response": brain.generar_respuesta_demo(mensaje)})
             
-    # Fallback al sistema viejo
+    # INTENTO 2: Usar sistema viejo (Fallback)
     global dashboard_brain
     if not dashboard_brain and create_chatbot: 
         dashboard_brain = create_chatbot()
@@ -464,7 +486,7 @@ def chat_admin():
     if dashboard_brain: 
         return jsonify({"response": dashboard_brain.invoke({"question": mensaje})})
         
-    return jsonify({"response": "Sistema de Chat en mantenimiento."})
+    return jsonify({"response": "Sistema de Chat en mantenimiento (Cerebros desconectados)."})
 
 # --- API: DETALLES CAMPAÑA ---
 @app.route('/api/campana/<string:id>', methods=['GET'])
