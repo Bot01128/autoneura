@@ -22,7 +22,6 @@ try:
     from trabajador_espia import ejecutar_espia
     
     # Trabajadores tipo "Procesamiento Lotes"
-    # NOTA: Se asume que estas funciones procesan un lote y retornan, NO se quedan en bucle infinito.
     from trabajador_analista import trabajar_analista
     from trabajador_persuasor import trabajar_persuasor
     
@@ -128,13 +127,11 @@ class OrquestadorSupremo:
         """
         EL GOBERNADOR: Revisa si tenemos capacidad de IA antes de arrancar una campaña.
         """
-        if not brain: return False # Si no hay manager, no arrancamos por seguridad
+        if not brain: return False 
         
         try:
-            # Intentamos obtener un modelo de prueba (sin gastar token real, solo check de DB)
-            # Si lanza excepción, es que todo está muerto.
+            # Intentamos obtener un modelo de prueba
             brain._find_available_key("general", "FREE") 
-            # También podríamos chequear PAID si FREE falla, pero por ahora priorizamos el flujo.
             return True
         except Exception:
             logging.warning("🛑 GOBERNADOR: Alerta de capacidad. Todas las IAs están ocupadas o agotadas.")
@@ -180,6 +177,7 @@ class OrquestadorSupremo:
         """
         Ejecuta TODOS los trabajadores en orden para UNA sola campaña.
         """
+        # Desempacamos TODAS las variables, incluyendo ubicacion
         camp_id, nombre, prod, audiencia, tipo_prod, limite_diario, ubicacion = campana
         if not limite_diario: limite_diario = 4
 
@@ -197,8 +195,10 @@ class OrquestadorSupremo:
         if cazados_hoy < limite_diario:
             logging.info(f"🔫 1. ACTIVANDO CAZADOR ({cazados_hoy}/{limite_diario})")
             query_opt, plat = self.planificar_estrategia_caza(prod, audiencia, tipo_prod)
-            # Ejecución directa (SIN THREADS) - El código espera aquí
-            ejecutar_caza(camp_id, query_opt, ubic, plat, "Variable", limite_diario)
+            
+            # --- CORRECCIÓN CRÍTICA AQUI: usamos 'ubicacion' en vez de 'ubic' ---
+            ejecutar_caza(camp_id, query_opt, ubicacion, plat, "Variable", limite_diario)
+            # --------------------------------------------------------------------
         else:
             logging.info(f"✅ Meta de caza cumplida hoy para {nombre}.")
 
@@ -254,26 +254,21 @@ class OrquestadorSupremo:
 
             # B. Cálculos de Tiempo (Balanceo de Carga)
             total_campanas = len(campanas)
-            tiempo_ciclo_total = 60 * 60 # Ciclo de revisión cada 1 hora (ejemplo base)
             
-            # Si hay muchas campañas, reducimos el tiempo de espera entre ellas
-            # Si hay pocas, podemos espaciarlas más para no saturar.
-            
-            # Estrategia: Ejecutar una tras otra con un pequeño respiro
             logging.info(f"🚦 CONTROLADOR DE TRÁFICO: {total_campanas} campañas en cola.")
 
             for campana in campanas:
                 # 1. GOBERNADOR: ¿Hay cupo de IA Global?
                 if not self.verificar_salud_global_ia():
                     logging.warning("🛑 GOBERNADOR: Frenando operaciones por falta de IA. Reintentando más tarde.")
-                    break # Salimos del bucle de campañas por este ciclo
+                    break 
 
                 # 2. EJECUCIÓN SECUENCIAL
                 self.ejecutar_campana_secuencial(campana)
                 
-                # 3. Respiro entre campañas (para bajar el RPM de la IA)
-                tiempo_respiro = 30 # Segundos
-                if total_campanas > 10: tiempo_respiro = 10 # Si hay muchas, corremos más rápido
+                # 3. Respiro entre campañas
+                tiempo_respiro = 30 
+                if total_campanas > 10: tiempo_respiro = 10 
                 
                 logging.info(f"⏳ Respirando {tiempo_respiro}s antes de la siguiente campaña...")
                 time.sleep(tiempo_respiro)
@@ -341,18 +336,15 @@ class OrquestadorSupremo:
                     ultima_revision_reportes = datetime.now()
 
                 # 4. DESCANSO DEL CICLO MAYOR
-                # Calculamos cuánto tardó todo el proceso
                 duracion_proceso = time.time() - inicio_ciclo
                 
-                # Si terminamos muy rápido (pocas campañas), dormimos más.
-                # Si tardamos mucho (muchas campañas), dormimos menos.
-                tiempo_base_descanso = 3600 # 1 hora por defecto
+                tiempo_base_descanso = 3600 # 1 hora
                 
-                if duracion_proceso > 1800: # Si trabajamos más de 30 mins
-                    tiempo_dormir = 600 # Descanso corto (10 mins)
+                if duracion_proceso > 1800:
+                    tiempo_dormir = 600
                 else:
                     tiempo_dormir = tiempo_base_descanso - duracion_proceso
-                    if tiempo_dormir < 600: tiempo_dormir = 600 # Mínimo 10 mins
+                    if tiempo_dormir < 600: tiempo_dormir = 600 
 
                 logging.info(f"💤 Vuelta completa en {duracion_proceso/60:.1f} mins. Durmiendo {tiempo_dormir/60:.1f} mins...")
                 time.sleep(tiempo_dormir) 

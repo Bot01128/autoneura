@@ -14,8 +14,13 @@ select, textarea, input[type="text"], input[type="number"], input[type="tel"], i
     width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: white; font-size: 14px; font-family: inherit; box-sizing: border-box;
 }
 
-/* BANDERAS */
+/* BANDERAS Y CORRECCIÓN DE TELÉFONO */
 .iti { width: 100%; display: block; margin-top: 5px; }
+
+/* ESTA ES LA CORRECCIÓN: Fuerza espacio a la izquierda para que no pise la bandera */
+.iti input, input[type="tel"] {
+    padding-left: 90px !important; 
+}
 
 /* CAJAS ESPECIALES */
 .brain-box { background-color: #f8f9fa; padding: 20px; border-left: 5px solid #007bff; margin-top: 20px; border-radius: 5px; }

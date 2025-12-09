@@ -222,7 +222,7 @@
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="{{ url_for('static', filename='mis_clientes.js') }}"></script>
 
-   <!-- SCRIPT INCRUSTADO: BANDERAS, CHAT Y FUNCIÓN CERRAR -->
+   <!-- SCRIPT COMBINADO Y MEJORADO: FUNCIONALIDAD DE BOTÓN + BANDERAS + CHAT -->
    <script>
        // Función para volver a la tabla
        function cerrarEdicion() {
@@ -232,7 +232,9 @@
        }
 
        document.addEventListener('DOMContentLoaded', () => {
-           // 1. FORZAR BANDERAS
+           // ==========================================
+           // 1. CONFIGURACIÓN DE BANDERAS (TELÉFONO)
+           // ==========================================
            var inputOps = {
                initialCountry: "auto",
                separateDialCode: true,
@@ -244,16 +246,102 @@
                },
                utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
            };
-           var inputCrear = document.querySelector("#numero_whatsapp");
-           if (inputCrear) window.intlTelInput(inputCrear, inputOps);
            
+           // Inicializar en Crear
+           var inputCrear = document.querySelector("#numero_whatsapp");
+           var itiCrear = null;
+           if (inputCrear) itiCrear = window.intlTelInput(inputCrear, inputOps);
+           
+           // Inicializar en Editar
            var inputEditar = document.querySelector("#edit_numero_whatsapp");
            if (inputEditar) window.intlTelInput(inputEditar, inputOps);
 
-           // 2. CHAT LATERAL
+
+           // ==========================================
+           // 2. LÓGICA DEL BOTÓN "LANZAR CAMPAÑA"
+           // ==========================================
+           const btnLanzar = document.getElementById('lancam');
+           if (btnLanzar) {
+                // Clonamos para eliminar eventos viejos
+                const nuevoBoton = btnLanzar.cloneNode(true);
+                btnLanzar.parentNode.replaceChild(nuevoBoton, btnLanzar);
+
+                nuevoBoton.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // Animación de carga
+                    const textoOriginal = nuevoBoton.innerText;
+                    nuevoBoton.innerText = "🚀 Iniciando Motores...";
+                    nuevoBoton.disabled = true;
+                    nuevoBoton.style.opacity = "0.7";
+
+                    // Recolectar datos
+                    // Helper para obtener valores por ID
+                    const val = (id) => { 
+                        let el = document.getElementById(id);
+                        return el ? el.value : "";
+                    };
+
+                    // Obtener número completo con código de país
+                    let telefonoFull = "";
+                    if (itiCrear) {
+                        telefonoFull = itiCrear.getNumber(); // Obtiene +58412...
+                    } else {
+                        telefonoFull = val('numero_whatsapp');
+                    }
+
+                    const datos = {
+                        nombre: val('nombre_campana'),
+                        que_vende: val('que_vendes'),
+                        a_quien: val('a_quien_va_dirigido'),
+                        idiomas: val('idiomas_busqueda'),
+                        ubicacion: val('ubicacion_geografica'),
+                        ticket_producto: val('ticket_producto'),
+                        competidores_principales: val('competidores_principales'),
+                        dolores_pain_points: val('dolores_pain_points'),
+                        tono_marca: val('tono_marca'),
+                        red_flags: val('red_flags'),
+                        tipo_producto: document.querySelector('input[name="tipo_producto"]:checked').value,
+                        descripcion: val('descripcion_producto'),
+                        numero_whatsapp: telefonoFull,
+                        enlace_venta: val('enlace_venta'),
+                        objetivo_cta: val('objetivo_cta')
+                    };
+
+                    // Enviar al Backend
+                    fetch('/api/crear-campana', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(datos)
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert("✅ ¡Campaña Lanzada con Éxito!");
+                            window.location.reload();
+                        } else {
+                            alert("❌ Error: " + (data.error || "Error desconocido"));
+                            nuevoBoton.innerText = textoOriginal;
+                            nuevoBoton.disabled = false;
+                            nuevoBoton.style.opacity = "1";
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert("❌ Error de conexión");
+                        nuevoBoton.innerText = textoOriginal;
+                        nuevoBoton.disabled = false;
+                        nuevoBoton.style.opacity = "1";
+                    });
+                });
+           }
+
+
+           // ==========================================
+           // 3. CHAT LATERAL (ARQUITECTO)
+           // ==========================================
            setTimeout(() => {
                const chatForm = document.getElementById('chat-form');
-               const finalInput = document.getElementById('user-input');
                const chatMessages = document.getElementById('chat-messages');
 
                if (chatForm) {
@@ -261,7 +349,6 @@
                    chatForm.parentNode.replaceChild(newChatForm, chatForm);
                    
                    const finalChatForm = document.getElementById('chat-form');
-                   // Re-capturamos el input porque al clonar el form a veces se pierde la referencia
                    const textInput = document.getElementById('user-input'); 
 
                    finalChatForm.addEventListener('submit', async (e) => {
@@ -282,7 +369,8 @@
                        chatMessages.scrollTop = chatMessages.scrollHeight;
 
                        try {
-                           const response = await fetch('/api/chat-arquitecto', {
+                           // Usamos la ruta del chat de admin normal
+                           const response = await fetch('/chat', {
                                method: 'POST',
                                headers: { 'Content-Type': 'application/json' },
                                body: JSON.stringify({ message: text })
@@ -290,7 +378,7 @@
                            const data = await response.json();
                            loadingDiv.innerHTML = data.response.replace(/\n/g, '<br>');
                        } catch (error) {
-                           loadingDiv.textContent = "Error conectando con el Arquitecto.";
+                           loadingDiv.textContent = "Error conectando con el Cerebro.";
                        }
                        chatMessages.scrollTop = chatMessages.scrollHeight;
                    });
@@ -299,4 +387,14 @@
        });
    </script>
 </body>
+    <!-- PARCHE DE CSS PARA EL TELÉFONO -->
+<style>
+    .iti input, input[type="tel"] {
+        padding-left: 95px !important; 
+        z-index: 1 !important;
+    }
+    .iti__flag-container {
+        z-index: 10 !important;
+    }
+</style>
 </html>
